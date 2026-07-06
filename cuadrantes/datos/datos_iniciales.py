@@ -50,15 +50,17 @@ class _PlantillaTrabajador:
 # reflejar altas y bajas del equipo.
 # ---------------------------------------------------------------------------
 EQUIPO_ACTUAL: list[_PlantillaTrabajador] = [
-    # Luis y Fernando: solo F1-MT, nunca noches y exactamente un fin de semana.
+    # Luis y Fernando son JEFES DE EQUIPO: por su condición realizan únicamente
+    # F1-MT, nunca hacen noches y trabajan exactamente un fin de semana al mes.
+    # Estas tres condiciones son fijas y deben mantenerse siempre.
     _PlantillaTrabajador(
         "FERNANDO CEMBRERO ANTOLÍN", {Puesto.F1}, set(), puede_hacer_noches=False,
         fines_semana_exactos=1,
-        notas="Solo F1-MT. Nunca noches. Exactamente un fin de semana al mes."),
+        notas="Jefe de equipo. Solo F1-MT. Nunca noches. Exactamente un fin de semana al mes."),
     _PlantillaTrabajador(
         "LUIS PERALTA ROS", {Puesto.F1}, set(), puede_hacer_noches=False,
         fines_semana_exactos=1,
-        notas="Solo F1-MT. Nunca noches. Exactamente un fin de semana al mes."),
+        notas="Jefe de equipo. Solo F1-MT. Nunca noches. Exactamente un fin de semana al mes."),
     _PlantillaTrabajador(
         "MOHAMED AMAR MOHAMED", {Puesto.MO}, {Puesto.F1, Puesto.F2},
         notas="Solo MO de mañana o cualquier puesto de noche. Nunca F1/F2/EX-MT."),

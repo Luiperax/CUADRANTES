@@ -66,8 +66,11 @@ class PesosObjetivos:
     equilibrio_noches: int = 80
     equilibrio_fines_semana: int = 80
     # Cumplimiento del objetivo individual de fines de semana (p. ej. Luis y
-    # Fernando: exactamente uno al mes). Peso alto: casi obligatorio.
-    objetivo_finde_individual: int = 500
+    # Fernando, jefes de equipo: exactamente uno al mes). Peso muy alto para que
+    # domine con claridad al resto de objetivos blandos (incluida la compensación
+    # histórica) y solo ceda ante la cobertura del servicio. Es, en la práctica,
+    # una condición casi obligatoria que solo se incumple por imposibilidad real.
+    objetivo_finde_individual: int = 20000
     rotacion_puestos: int = 30
     respetar_preferencias: int = 40
     agrupar_descansos: int = 25
