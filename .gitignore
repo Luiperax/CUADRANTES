@@ -1,0 +1,19 @@
+# Entorno y artefactos de Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# Datos de la aplicación (base de datos y salidas generadas)
+datos/
+exportaciones/
+copias_seguridad/
+*.db
+*.db-wal
+*.db-shm
+
+# Sistema operativo
+.DS_Store
+Thumbs.db

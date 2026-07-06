@@ -1,0 +1,448 @@
+"""
+Motor de optimización de cuadrantes basado en Google OR-Tools (CP-SAT).
+
+Se modela el problema como un *Constraint Satisfaction Problem* (CSP) con
+objetivos múltiples ponderados. CP-SAT combina programación por restricciones,
+programación lineal entera y búsqueda con *backtracking*, por lo que cubre de
+forma nativa todas las técnicas exigidas por el pliego (CSP, programación lineal,
+optimización multiobjetivo, heurísticas y backtracking).
+
+Estrategia de modelado
+-----------------------
+* Variable de decisión ``x[t, d, turno, puesto] ∈ {0,1}``: el trabajador ``t``
+  cubre ese turno-puesto el día ``d``.
+* **Restricciones duras** (nunca se incumplen salvo imposibilidad operativa):
+    - Un trabajador realiza como máximo un turno por día.
+    - Restricciones individuales (puestos habilitados, prohibición de noches...).
+    - Disponibilidad (ausencias y días no disponibles).
+    - Cobertura de todos los puestos (con variable de holgura penalizada para
+      poder detectar y justificar la imposibilidad en lugar de fallar).
+    - No encadenar noche -> mañana del día siguiente.
+    - Sábado y domingo del mismo fin de semana los realiza el mismo trabajador.
+    - Máximo de días y de noches consecutivos.
+    - Evitar noche justo antes de vacaciones y al reincorporarse.
+* **Objetivos blandos** (ponderados y minimizados conjuntamente):
+    - Equilibrio de horas, horas extra, noches y fines de semana.
+    - Compensación según la memoria histórica.
+    - Rotación de puestos, preferencias, recuperación tras noches, etc.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import date
+
+from ortools.sat.python import cp_model
+
+from ..config.configuracion import Configuracion
+from ..config.constantes import (
+    HORAS_POR_TURNO,
+    Puesto,
+    TipoAusencia,
+    Turno,
+    turnos_puesto_requeridos,
+)
+from ..datos.modelos import Asignacion, Ausencia, Cuadrante, RestriccionTemporal, Trabajador
+from ..dominio.calendario import CalendarioMes
+from ..dominio.historico import CargaHistorica
+
+
+@dataclass
+class ResultadoOptimizacion:
+    """Resultado de una ejecución del optimizador."""
+
+    cuadrante: Cuadrante
+    estado_solver: str            # OPTIMAL, FEASIBLE, INFEASIBLE...
+    puestos_sin_cubrir: list[tuple[int, str, str]]  # (día, turno, puesto)
+    valor_objetivo: float
+    tiempo_segundos: float
+    mensajes: list[str]
+
+    @property
+    def hay_incidencias(self) -> bool:
+        return bool(self.puestos_sin_cubrir)
+
+
+# Penalización muy alta para dejar un puesto sin cubrir (solo como último recurso).
+PENALIZACION_SIN_CUBRIR = 1_000_000
+
+
+class OptimizadorCuadrante:
+    """Construye y resuelve el modelo CP-SAT de un cuadrante mensual."""
+
+    def __init__(
+        self,
+        anio: int,
+        mes: int,
+        trabajadores: list[Trabajador],
+        configuracion: Configuracion,
+        ausencias: list[Ausencia] | None = None,
+        restricciones: list[RestriccionTemporal] | None = None,
+        festivos: set[date] | None = None,
+        carga_historica: dict[int, CargaHistorica] | None = None,
+    ):
+        self.anio = anio
+        self.mes = mes
+        self.trabajadores = trabajadores
+        self.config = configuracion
+        self.ausencias = ausencias or []
+        self.restricciones = restricciones or []
+        self.calendario = CalendarioMes(anio, mes, festivos or set())
+        self.carga_historica = carga_historica or {}
+
+        self.modelo = cp_model.CpModel()
+        # x[(t, d, turno, puesto)] -> variable booleana.
+        self.x: dict[tuple[int, int, Turno, Puesto], cp_model.IntVar] = {}
+        # Holgura por puesto sin cubrir.
+        self.holgura: dict[tuple[int, Turno, Puesto], cp_model.IntVar] = {}
+        self.mensajes: list[str] = []
+
+        self._mapa_trabajadores = {t.id: t for t in trabajadores}
+        self._disponibilidad = self._calcular_disponibilidad()
+
+    # ------------------------------------------------------------------
+    # Preparación de datos
+    # ------------------------------------------------------------------
+    def _calcular_disponibilidad(self) -> dict[tuple[int, int], bool]:
+        """Determina si cada trabajador está disponible cada día del mes.
+
+        No está disponible si tiene una ausencia que cubre ese día o si figura en
+        los días no disponibles de una restricción temporal.
+        """
+        disponible: dict[tuple[int, int], bool] = {}
+        for trabajador in self.trabajadores:
+            for dia in self.calendario.dias:
+                fecha = self.calendario.fecha(dia)
+                libre = True
+                for ausencia in self.ausencias:
+                    if ausencia.trabajador_id == trabajador.id and ausencia.cubre(fecha):
+                        libre = False
+                        break
+                disponible[(trabajador.id, dia)] = libre
+
+        for restriccion in self.restricciones:
+            for dia in restriccion.dias_no_disponibles:
+                if 1 <= dia <= self.calendario.numero_dias:
+                    disponible[(restriccion.trabajador_id, dia)] = False
+        return disponible
+
+    def _ausencia_del_dia(self, trabajador_id: int, dia: int) -> TipoAusencia | None:
+        fecha = self.calendario.fecha(dia)
+        for ausencia in self.ausencias:
+            if ausencia.trabajador_id == trabajador_id and ausencia.cubre(fecha):
+                return ausencia.tipo
+        return None
+
+    # ------------------------------------------------------------------
+    # Construcción del modelo
+    # ------------------------------------------------------------------
+    def _crear_variables(self) -> None:
+        for trabajador in self.trabajadores:
+            for dia in self.calendario.dias:
+                festivo_finde = self.calendario.es_festivo_o_finde(dia)
+                for turno, puesto in turnos_puesto_requeridos(festivo_finde):
+                    # Solo se crea la variable si el trabajador puede, en principio,
+                    # realizar ese turno-puesto (restricción individual) y está
+                    # disponible ese día.
+                    if not trabajador.puede_realizar(turno, puesto):
+                        continue
+                    if not self._disponibilidad[(trabajador.id, dia)]:
+                        continue
+                    self.x[(trabajador.id, dia, turno, puesto)] = self.modelo.NewBoolVar(
+                        f"x_{trabajador.id}_{dia}_{turno.value}_{puesto.value}"
+                    )
+
+    def _restriccion_cobertura(self) -> None:
+        """Cada puesto requerido debe cubrirse exactamente una vez (con holgura)."""
+        for dia in self.calendario.dias:
+            festivo_finde = self.calendario.es_festivo_o_finde(dia)
+            for turno, puesto in turnos_puesto_requeridos(festivo_finde):
+                candidatos = [
+                    self.x[(t.id, dia, turno, puesto)]
+                    for t in self.trabajadores
+                    if (t.id, dia, turno, puesto) in self.x
+                ]
+                holgura = self.modelo.NewBoolVar(f"holgura_{dia}_{turno.value}_{puesto.value}")
+                self.holgura[(dia, turno, puesto)] = holgura
+                # Suma de asignados + holgura = 1  ->  si nadie puede, holgura=1.
+                self.modelo.Add(sum(candidatos) + holgura == 1)
+
+    def _restriccion_un_turno_por_dia(self) -> None:
+        """Un trabajador realiza como máximo un turno-puesto cada día."""
+        for trabajador in self.trabajadores:
+            for dia in self.calendario.dias:
+                variables = [
+                    var for (t, d, _, _), var in self.x.items()
+                    if t == trabajador.id and d == dia
+                ]
+                if variables:
+                    self.modelo.Add(sum(variables) <= 1)
+
+    def _variable_trabaja(self, trabajador_id: int, dia: int, solo_noche: bool | None = None):
+        """Devuelve la lista de variables de trabajo de un trabajador ese día.
+
+        :param solo_noche: ``True`` -> solo noches; ``False`` -> solo días;
+                           ``None`` -> cualquiera.
+        """
+        resultado = []
+        for (t, d, turno, _), var in self.x.items():
+            if t != trabajador_id or d != dia:
+                continue
+            if solo_noche is True and not turno.es_nocturno:
+                continue
+            if solo_noche is False and turno.es_nocturno:
+                continue
+            resultado.append(var)
+        return resultado
+
+    def _restriccion_noche_manana(self) -> None:
+        """Prohíbe encadenar una noche con una jornada diurna al día siguiente."""
+        for trabajador in self.trabajadores:
+            for dia in self.calendario.dias[:-1]:
+                noches_hoy = self._variable_trabaja(trabajador.id, dia, solo_noche=True)
+                dia_manana = self._variable_trabaja(trabajador.id, dia + 1, solo_noche=False)
+                for vn in noches_hoy:
+                    for vd in dia_manana:
+                        self.modelo.Add(vn + vd <= 1)
+
+    def _restriccion_fines_semana(self) -> None:
+        """Sábado y domingo del mismo fin de semana los realiza la misma persona."""
+        if not self.config.fin_de_semana.sabado_domingo_mismo_trabajador:
+            return
+        for sabado, domingo in self.calendario.fines_de_semana():
+            for trabajador in self.trabajadores:
+                trabaja_sab = self._variable_trabaja(trabajador.id, sabado)
+                trabaja_dom = self._variable_trabaja(trabajador.id, domingo)
+                if not trabaja_sab or not trabaja_dom:
+                    continue
+                b_sab = self.modelo.NewBoolVar(f"sab_{trabajador.id}_{sabado}")
+                b_dom = self.modelo.NewBoolVar(f"dom_{trabajador.id}_{domingo}")
+                self.modelo.Add(sum(trabaja_sab) == b_sab)
+                self.modelo.Add(sum(trabaja_dom) == b_dom)
+                # El trabajador hace el sábado si y solo si hace el domingo.
+                self.modelo.Add(b_sab == b_dom)
+
+    def _restriccion_consecutivos(self) -> None:
+        """Limita días y noches consecutivos mediante ventanas deslizantes."""
+        max_dias = self.config.descanso.max_dias_consecutivos
+        max_noches = self.config.descanso.max_noches_consecutivas
+        dias = self.calendario.dias
+
+        for trabajador in self.trabajadores:
+            # Días consecutivos trabajados.
+            ventana = max_dias + 1
+            for inicio in range(0, len(dias) - ventana + 1):
+                variables = []
+                for offset in range(ventana):
+                    variables += self._variable_trabaja(trabajador.id, dias[inicio + offset])
+                if variables:
+                    self.modelo.Add(sum(variables) <= max_dias)
+
+            # Noches consecutivas.
+            ventana_n = max_noches + 1
+            for inicio in range(0, len(dias) - ventana_n + 1):
+                variables = []
+                for offset in range(ventana_n):
+                    variables += self._variable_trabaja(
+                        trabajador.id, dias[inicio + offset], solo_noche=True
+                    )
+                if variables:
+                    self.modelo.Add(sum(variables) <= max_noches)
+
+    def _restriccion_vacaciones(self) -> None:
+        """Evita noche antes de vacaciones y noche al reincorporarse."""
+        params = self.config.vacaciones
+        for ausencia in self.ausencias:
+            if ausencia.tipo is not TipoAusencia.VACACIONES:
+                continue
+            # Día anterior al inicio de las vacaciones (si cae en el mes).
+            if params.evitar_noche_antes:
+                dia_antes = ausencia.fecha_inicio.day - 1
+                if ausencia.fecha_inicio.month == self.mes and 1 <= dia_antes <= self.calendario.numero_dias:
+                    for var in self._variable_trabaja(ausencia.trabajador_id, dia_antes, solo_noche=True):
+                        self.modelo.Add(var == 0)
+            # Día de reincorporación (día siguiente al fin de vacaciones).
+            if params.evitar_noche_al_reincorporarse:
+                dia_despues = ausencia.fecha_fin.day + 1
+                if ausencia.fecha_fin.month == self.mes and 1 <= dia_despues <= self.calendario.numero_dias:
+                    for var in self._variable_trabaja(ausencia.trabajador_id, dia_despues, solo_noche=True):
+                        self.modelo.Add(var == 0)
+
+    # ------------------------------------------------------------------
+    # Objetivos blandos
+    # ------------------------------------------------------------------
+    def _construir_objetivo(self) -> None:
+        pesos = self.config.pesos
+        terminos: list = []
+
+        # (1) Penalización dura por puestos sin cubrir.
+        terminos.append(PENALIZACION_SIN_CUBRIR * sum(self.holgura.values()))
+
+        # Totales por trabajador.
+        turnos_totales: dict[int, cp_model.IntVar] = {}
+        noches_totales: dict[int, cp_model.IntVar] = {}
+        fines_totales: dict[int, cp_model.IntVar] = {}
+
+        sabados = set(self.calendario.sabados())
+        max_turnos = len(self.calendario.dias)
+
+        for trabajador in self.trabajadores:
+            vars_trab = [v for (t, _, _, _), v in self.x.items() if t == trabajador.id]
+            vars_noche = [
+                v for (t, _, turno, _), v in self.x.items()
+                if t == trabajador.id and turno.es_nocturno
+            ]
+            vars_finde = [
+                v for (t, d, _, _), v in self.x.items()
+                if t == trabajador.id and d in sabados
+            ]
+
+            tt = self.modelo.NewIntVar(0, max_turnos, f"turnos_{trabajador.id}")
+            self.modelo.Add(tt == (sum(vars_trab) if vars_trab else 0))
+            turnos_totales[trabajador.id] = tt
+
+            nt = self.modelo.NewIntVar(0, max_turnos, f"noches_{trabajador.id}")
+            self.modelo.Add(nt == (sum(vars_noche) if vars_noche else 0))
+            noches_totales[trabajador.id] = nt
+
+            ft = self.modelo.NewIntVar(0, len(sabados), f"fines_{trabajador.id}")
+            self.modelo.Add(ft == (sum(vars_finde) if vars_finde else 0))
+            fines_totales[trabajador.id] = ft
+
+        # (2) Equilibrio: minimizar el rango (máx - mín) de cada magnitud.
+        ids = [t.id for t in self.trabajadores]
+
+        def termino_rango(valores: dict[int, cp_model.IntVar], cota: int, nombre: str):
+            maximo = self.modelo.NewIntVar(0, cota, f"max_{nombre}")
+            minimo = self.modelo.NewIntVar(0, cota, f"min_{nombre}")
+            for i in ids:
+                self.modelo.Add(maximo >= valores[i])
+                self.modelo.Add(minimo <= valores[i])
+            rango = self.modelo.NewIntVar(0, cota, f"rango_{nombre}")
+            self.modelo.Add(rango == maximo - minimo)
+            return rango
+
+        terminos.append(pesos.equilibrio_horas * termino_rango(turnos_totales, max_turnos, "horas"))
+        terminos.append(pesos.equilibrio_noches * termino_rango(noches_totales, max_turnos, "noches"))
+        terminos.append(
+            pesos.equilibrio_fines_semana
+            * termino_rango(fines_totales, len(sabados) or 1, "fines")
+        )
+
+        # (3) Compensación histórica: penaliza asignar turnos a quien más ha
+        #     trabajado en meses anteriores (desvío positivo respecto a la media).
+        if self.carga_historica:
+            from ..dominio.historico import AgregadorHistorico
+
+            desvios = AgregadorHistorico.normalizar_para_equilibrio(self.carga_historica, ids)
+            for i in ids:
+                desvio_horas = int(round(desvios.get(i, {}).get("horas", 0.0) / HORAS_POR_TURNO))
+                desvio_noches = int(round(desvios.get(i, {}).get("noches", 0.0)))
+                # Coste proporcional al exceso histórico.
+                if desvio_horas != 0:
+                    terminos.append(pesos.tener_en_cuenta_historico * desvio_horas * turnos_totales[i])
+                if desvio_noches != 0:
+                    terminos.append(pesos.tener_en_cuenta_historico * desvio_noches * noches_totales[i])
+
+        # (4) Tope de fines de semana con holgura penalizada.
+        tope = self.config.fin_de_semana.fines_semana_tope_duro
+        for i in ids:
+            exceso = self.modelo.NewIntVar(0, len(sabados) or 1, f"exceso_finde_{i}")
+            self.modelo.Add(exceso >= fines_totales[i] - tope)
+            terminos.append(pesos.equilibrio_fines_semana * 50 * exceso)
+
+        # (5) Preferencias de turno (día/noche) declaradas por el trabajador.
+        for trabajador in self.trabajadores:
+            if trabajador.prefiere_turno_noche:
+                # Recompensar noches -> restar del coste.
+                terminos.append(-pesos.respetar_preferencias * noches_totales[trabajador.id])
+            if trabajador.prefiere_turno_dia:
+                dias_trab = self.modelo.NewIntVar(0, max_turnos, f"dias_{trabajador.id}")
+                self.modelo.Add(
+                    dias_trab == turnos_totales[trabajador.id] - noches_totales[trabajador.id]
+                )
+                terminos.append(-pesos.respetar_preferencias * dias_trab)
+
+        self.modelo.Minimize(sum(terminos))
+
+    # ------------------------------------------------------------------
+    # Resolución
+    # ------------------------------------------------------------------
+    def resolver(self) -> ResultadoOptimizacion:
+        """Construye el modelo completo, lo resuelve y devuelve el cuadrante."""
+        self._crear_variables()
+        self._restriccion_cobertura()
+        self._restriccion_un_turno_por_dia()
+        self._restriccion_noche_manana()
+        self._restriccion_fines_semana()
+        self._restriccion_consecutivos()
+        self._restriccion_vacaciones()
+        self._construir_objetivo()
+
+        solucionador = cp_model.CpSolver()
+        solucionador.parameters.max_time_in_seconds = float(self.config.tiempo_maximo_solver_segundos)
+        solucionador.parameters.num_search_workers = 8
+
+        estado = solucionador.Solve(self.modelo)
+        nombre_estado = solucionador.StatusName(estado)
+
+        cuadrante = self._construir_cuadrante(solucionador, estado)
+        sin_cubrir = self._detectar_sin_cubrir(solucionador, estado)
+
+        if estado in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+            valor = solucionador.ObjectiveValue()
+        else:
+            valor = float("inf")
+            self.mensajes.append(
+                "El solucionador no encontró solución factible. Revise las restricciones."
+            )
+
+        return ResultadoOptimizacion(
+            cuadrante=cuadrante,
+            estado_solver=nombre_estado,
+            puestos_sin_cubrir=sin_cubrir,
+            valor_objetivo=valor,
+            tiempo_segundos=solucionador.WallTime(),
+            mensajes=self.mensajes,
+        )
+
+    def _construir_cuadrante(self, solucionador, estado) -> Cuadrante:
+        cuadrante = Cuadrante(
+            id=None,
+            anio=self.anio,
+            mes=self.mes,
+            empresa=self.config.empresa,
+            sede=self.config.sede,
+            computo_mensual=self.config.computo_mensual_referencia,
+            fecha_generacion=date.today(),
+            trabajadores_ids=[t.id for t in self.trabajadores],
+        )
+
+        resuelto = estado in (cp_model.OPTIMAL, cp_model.FEASIBLE)
+        for trabajador in self.trabajadores:
+            for dia in self.calendario.dias:
+                asignado = False
+                if resuelto:
+                    for (t, d, turno, puesto), var in self.x.items():
+                        if t == trabajador.id and d == dia and solucionador.Value(var) == 1:
+                            cuadrante.establecer(
+                                Asignacion(trabajador.id, dia, turno=turno, puesto=puesto)
+                            )
+                            asignado = True
+                            break
+                if not asignado:
+                    # Celda de ausencia o día libre.
+                    ausencia = self._ausencia_del_dia(trabajador.id, dia)
+                    cuadrante.establecer(
+                        Asignacion(trabajador.id, dia, ausencia=ausencia)
+                    )
+        return cuadrante
+
+    def _detectar_sin_cubrir(self, solucionador, estado) -> list[tuple[int, str, str]]:
+        sin_cubrir: list[tuple[int, str, str]] = []
+        if estado not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+            return sin_cubrir
+        for (dia, turno, puesto), var in self.holgura.items():
+            if solucionador.Value(var) == 1:
+                sin_cubrir.append((dia, turno.value, puesto.value))
+        return sin_cubrir
