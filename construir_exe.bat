@@ -9,17 +9,21 @@ REM  programa estara en:  dist\Cuadrantes\Cuadrantes.exe
 REM ===================================================================
 cd /d "%~dp0"
 
-where python >nul 2>nul
-if errorlevel 1 (
+set "PYEXE="
+where py >nul 2>nul && set "PYEXE=py"
+if not defined PYEXE (
+    where python >nul 2>nul && set "PYEXE=python"
+)
+if not defined PYEXE (
     echo No se ha encontrado Python. Instalelo desde https://www.python.org/downloads/
-    echo (marque "Add Python to PATH"). Solo hace falta para CREAR el ejecutable.
+    echo (marque "Add python.exe to PATH"). Solo hace falta para CREAR el ejecutable.
     pause
     exit /b 1
 )
 
 if not exist ".venv\" (
     echo Preparando el entorno...
-    python -m venv .venv
+    %PYEXE% -m venv .venv
     call ".venv\Scripts\activate.bat"
     python -m pip install --upgrade pip
     pip install -r requirements.txt
