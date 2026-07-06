@@ -11,6 +11,17 @@ de forma continua.
 > columnas H.T./H.E./H.N. y estética idéntica (colores, fines de semana en
 > amarillo, noches en cian, celdas combinadas).
 
+## 📱 Usar y gestionar todo desde el móvil
+
+Para tener una **URL fija** siempre disponible y gestionarlo por completo desde el
+teléfono (sin ordenador ni línea de comandos), publique la versión web en la nube
+con un toque:
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/luiperax/cuadrantes)
+
+Después, defina la contraseña `CUADRANTES_PASSWORD` en el panel de Render y abra la
+URL en el móvil. Guía detallada en [`docs/DESPLIEGUE.md`](docs/DESPLIEGUE.md).
+
 ---
 
 ## 1. Características principales
