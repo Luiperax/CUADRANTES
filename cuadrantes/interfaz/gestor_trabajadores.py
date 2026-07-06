@@ -33,6 +33,13 @@ class DialogoTrabajador(QtWidgets.QDialog):
         self.w_cm.setValue(self.trabajador.computo_mensual)
         self.w_noches = QtWidgets.QCheckBox()
         self.w_noches.setChecked(self.trabajador.puede_hacer_noches)
+        # Objetivo individual de fines de semana (-1 = usar el objetivo general).
+        self.w_findes = QtWidgets.QSpinBox()
+        self.w_findes.setRange(-1, 5)
+        self.w_findes.setSpecialValueText("General (1-2)")
+        self.w_findes.setValue(
+            self.trabajador.fines_semana_exactos
+            if self.trabajador.fines_semana_exactos is not None else -1)
         self.w_pref_dia = QtWidgets.QCheckBox()
         self.w_pref_dia.setChecked(self.trabajador.prefiere_turno_dia)
         self.w_pref_noche = QtWidgets.QCheckBox()
@@ -42,6 +49,7 @@ class DialogoTrabajador(QtWidgets.QDialog):
         disp.addRow("Activo:", self.w_activo)
         disp.addRow("Cómputo mensual:", self.w_cm)
         disp.addRow("Puede hacer noches:", self.w_noches)
+        disp.addRow("Fines de semana exactos/mes:", self.w_findes)
 
         # Casillas de puestos diurnos y nocturnos.
         self.chk_diurnos = {}
@@ -81,6 +89,8 @@ class DialogoTrabajador(QtWidgets.QDialog):
         t.activo = self.w_activo.isChecked()
         t.computo_mensual = self.w_cm.value()
         t.puede_hacer_noches = self.w_noches.isChecked()
+        valor_findes = self.w_findes.value()
+        t.fines_semana_exactos = None if valor_findes < 0 else valor_findes
         t.prefiere_turno_dia = self.w_pref_dia.isChecked()
         t.prefiere_turno_noche = self.w_pref_noche.isChecked()
         t.puestos_diurnos_permitidos = {p for p, c in self.chk_diurnos.items() if c.isChecked()}

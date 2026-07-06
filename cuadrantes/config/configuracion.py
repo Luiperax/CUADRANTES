@@ -65,6 +65,9 @@ class PesosObjetivos:
     equilibrio_horas_extra: int = 90
     equilibrio_noches: int = 80
     equilibrio_fines_semana: int = 80
+    # Cumplimiento del objetivo individual de fines de semana (p. ej. Luis y
+    # Fernando: exactamente uno al mes). Peso alto: casi obligatorio.
+    objetivo_finde_individual: int = 500
     rotacion_puestos: int = 30
     respetar_preferencias: int = 40
     agrupar_descansos: int = 25

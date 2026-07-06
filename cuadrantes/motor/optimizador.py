@@ -346,10 +346,24 @@ class OptimizadorCuadrante:
 
         # (4) Tope de fines de semana con holgura penalizada.
         tope = self.config.fin_de_semana.fines_semana_tope_duro
+        n_sabados = len(sabados) or 1
         for i in ids:
-            exceso = self.modelo.NewIntVar(0, len(sabados) or 1, f"exceso_finde_{i}")
+            exceso = self.modelo.NewIntVar(0, n_sabados, f"exceso_finde_{i}")
             self.modelo.Add(exceso >= fines_totales[i] - tope)
             terminos.append(pesos.equilibrio_fines_semana * 50 * exceso)
+
+        # (4 bis) Objetivo individual de fines de semana (p. ej. Luis y Fernando:
+        # exactamente uno al mes). Se penaliza fuertemente cualquier desviación
+        # respecto al número exacto, en ambos sentidos (ni más ni menos).
+        for trabajador in self.trabajadores:
+            objetivo = trabajador.fines_semana_exactos
+            if objetivo is None:
+                continue
+            desv_pos = self.modelo.NewIntVar(0, n_sabados, f"finde_desv_pos_{trabajador.id}")
+            desv_neg = self.modelo.NewIntVar(0, n_sabados, f"finde_desv_neg_{trabajador.id}")
+            # desv_pos - desv_neg = fines_totales - objetivo   (desviación con signo).
+            self.modelo.Add(fines_totales[trabajador.id] - objetivo == desv_pos - desv_neg)
+            terminos.append(pesos.objetivo_finde_individual * (desv_pos + desv_neg))
 
         # (5) Preferencias de turno (día/noche) declaradas por el trabajador.
         for trabajador in self.trabajadores:

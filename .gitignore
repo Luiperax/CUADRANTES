@@ -6,10 +6,11 @@ __pycache__/
 venv/
 .pytest_cache/
 
-# Datos de la aplicación (base de datos y salidas generadas)
-datos/
-exportaciones/
-copias_seguridad/
+# Datos de la aplicación (base de datos y salidas generadas).
+# Se anclan a la raíz (/) para NO ignorar el paquete de código «cuadrantes/datos/».
+/datos/
+/exportaciones/
+/copias_seguridad/
 *.db
 *.db-wal
 *.db-shm

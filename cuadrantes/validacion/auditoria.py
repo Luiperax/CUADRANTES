@@ -175,6 +175,15 @@ class Auditor:
                 infracciones.append(
                     f"{self._nombre(tid)} realiza {resumen.numero_fines_semana} fines de semana")
                 afectados.add(self._nombre(tid))
+            # Objetivo individual exacto (p. ej. Luis y Fernando: exactamente uno).
+            trabajador = self.trabajadores.get(tid)
+            if trabajador and trabajador.fines_semana_exactos is not None:
+                objetivo = trabajador.fines_semana_exactos
+                if resumen.numero_fines_semana != objetivo:
+                    infracciones.append(
+                        f"{self._nombre(tid)} realiza {resumen.numero_fines_semana} "
+                        f"fin(es) de semana en lugar de los {objetivo} previstos")
+                    afectados.add(self._nombre(tid))
         # Comprobación de emparejamiento sábado-domingo.
         for sabado, domingo in self.calendario.fines_de_semana():
             for tid in self.resumenes:
