@@ -56,6 +56,7 @@ class RepositorioTrabajadores:
             puestos_nocturnos_permitidos=_puestos_desde_texto(fila["puestos_nocturnos_permitidos"]),
             puede_hacer_noches=bool(fila["puede_hacer_noches"]),
             fines_semana_exactos=fila["fines_semana_exactos"],
+            es_jefe_equipo=bool(fila["es_jefe_equipo"]),
             prefiere_turno_dia=bool(fila["prefiere_turno_dia"]),
             prefiere_turno_noche=bool(fila["prefiere_turno_noche"]),
             notas=fila["notas"],
@@ -70,6 +71,7 @@ class RepositorioTrabajadores:
             _puestos_a_texto(trabajador.puestos_nocturnos_permitidos),
             int(trabajador.puede_hacer_noches),
             trabajador.fines_semana_exactos,
+            int(trabajador.es_jefe_equipo),
             int(trabajador.prefiere_turno_dia),
             int(trabajador.prefiere_turno_noche),
             trabajador.notas,
@@ -79,9 +81,9 @@ class RepositorioTrabajadores:
                 cur = con.execute(
                     "INSERT INTO trabajadores (nombre, activo, computo_mensual,"
                     " puestos_diurnos_permitidos, puestos_nocturnos_permitidos,"
-                    " puede_hacer_noches, fines_semana_exactos, prefiere_turno_dia,"
-                    " prefiere_turno_noche, notas)"
-                    " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    " puede_hacer_noches, fines_semana_exactos, es_jefe_equipo,"
+                    " prefiere_turno_dia, prefiere_turno_noche, notas)"
+                    " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     datos,
                 )
                 trabajador.id = cur.lastrowid
@@ -90,8 +92,8 @@ class RepositorioTrabajadores:
                 con.execute(
                     "UPDATE trabajadores SET nombre=?, activo=?, computo_mensual=?,"
                     " puestos_diurnos_permitidos=?, puestos_nocturnos_permitidos=?,"
-                    " puede_hacer_noches=?, fines_semana_exactos=?, prefiere_turno_dia=?,"
-                    " prefiere_turno_noche=?, notas=?"
+                    " puede_hacer_noches=?, fines_semana_exactos=?, es_jefe_equipo=?,"
+                    " prefiere_turno_dia=?, prefiere_turno_noche=?, notas=?"
                     " WHERE id=?",
                     datos + (trabajador.id,),
                 )

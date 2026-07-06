@@ -45,6 +45,11 @@ class Trabajador:
     # objetivo casi obligatorio (penalización muy alta salvo imposibilidad).
     fines_semana_exactos: int | None = None
 
+    # Jefe de equipo. Los jefes de equipo tienen una reserva especial: el puesto
+    # F1 de mañana (MT-F1) en día laborable solo pueden realizarlo ellos. En fin de
+    # semana o festivo ese puesto lo puede hacer cualquiera.
+    es_jefe_equipo: bool = False
+
     # Preferencias (objetivos blandos).
     prefiere_turno_dia: bool = False
     prefiere_turno_noche: bool = False

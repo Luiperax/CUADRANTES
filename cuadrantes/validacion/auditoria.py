@@ -110,8 +110,11 @@ class Auditor:
                               motivo="Todos los puestos están cubiertos.")
 
     def _regla_restricciones_individuales(self) -> ResultadoRegla:
+        from ..config.constantes import Puesto, Turno
+
         infracciones: list[str] = []
         afectados: set[str] = set()
+        hay_jefes = any(t.es_jefe_equipo for t in self.trabajadores.values())
         for (trabajador_id, dia), asignacion in self.cuadrante.asignaciones.items():
             if not asignacion.es_trabajo:
                 continue
@@ -119,6 +122,14 @@ class Auditor:
             if trabajador and not trabajador.puede_realizar(asignacion.turno, asignacion.puesto):
                 infracciones.append(
                     f"{trabajador.nombre} en {asignacion.turno.value}-{asignacion.puesto.value} (día {dia})")
+                afectados.add(trabajador.nombre)
+            # Reserva de F1 de mañana a los jefes de equipo en día laborable.
+            if (self.config.reservar_f1_manana_a_jefes and hay_jefes and trabajador
+                    and asignacion.turno is Turno.MANANA_TARDE and asignacion.puesto is Puesto.F1
+                    and not self.calendario.es_festivo_o_finde(dia)
+                    and not trabajador.es_jefe_equipo):
+                infracciones.append(
+                    f"{trabajador.nombre} realiza MT-F1 en laborable (día {dia}), reservado a jefes")
                 afectados.add(trabajador.nombre)
         if infracciones:
             return ResultadoRegla(

@@ -88,6 +88,10 @@ class Configuracion:
     empresa: str = "NATURGY"
     sede: str = "AV. SAN LUIS - 77"
 
+    # Reserva del puesto F1 de mañana (MT-F1) a los jefes de equipo en días
+    # laborables. En fin de semana o festivo ese puesto lo puede hacer cualquiera.
+    reservar_f1_manana_a_jefes: bool = True
+
     descanso: ParametrosDescanso = field(default_factory=ParametrosDescanso)
     fin_de_semana: ParametrosFinDeSemana = field(default_factory=ParametrosFinDeSemana)
     vacaciones: ParametrosVacaciones = field(default_factory=ParametrosVacaciones)
@@ -123,6 +127,9 @@ class Configuracion:
         )
         config.meses_historico_considerados = datos.get(
             "meses_historico_considerados", config.meses_historico_considerados
+        )
+        config.reservar_f1_manana_a_jefes = datos.get(
+            "reservar_f1_manana_a_jefes", config.reservar_f1_manana_a_jefes
         )
         if "descanso" in datos:
             config.descanso = ParametrosDescanso(**datos["descanso"])

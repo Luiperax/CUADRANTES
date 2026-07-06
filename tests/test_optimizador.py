@@ -28,9 +28,13 @@ def _plantilla_naturgy() -> list[Trabajador]:
         idx += 1
         return t
 
-    # Restricciones individuales exigidas por el pliego:
-    nuevo("FERNANDO CEMBRERO ANTOLÍN", {Puesto.F1}, set(), noches=False)
-    nuevo("LUIS PERALTA ROS", {Puesto.F1}, set(), noches=False)
+    # Restricciones individuales exigidas por el pliego. Luis y Fernando son jefes
+    # de equipo: cualquier puesto de mañana, nunca noches, un fin de semana al mes,
+    # y MT-F1 en laborable reservado a ellos.
+    nuevo("FERNANDO CEMBRERO ANTOLÍN", todos, set(), noches=False,
+          es_jefe_equipo=True, fines_semana_exactos=1)
+    nuevo("LUIS PERALTA ROS", todos, set(), noches=False,
+          es_jefe_equipo=True, fines_semana_exactos=1)
     nuevo("MOHAMED AMAR MOHAMED", {Puesto.MO}, {Puesto.F1, Puesto.F2})
     # Resto de la plantilla: polivalentes.
     nuevo("SANTIAGO R. MANRIQUE GÓMEZ", todos, {Puesto.F1, Puesto.F2})

@@ -99,6 +99,9 @@ class OptimizadorCuadrante:
 
         self._mapa_trabajadores = {t.id: t for t in trabajadores}
         self._disponibilidad = self._calcular_disponibilidad()
+        # La reserva de MT-F1 a jefes solo tiene sentido si existe al menos un jefe;
+        # de lo contrario el puesto quedaría sin poder cubrirse.
+        self._hay_jefes = any(t.es_jefe_equipo for t in trabajadores)
 
     # ------------------------------------------------------------------
     # Preparación de datos
@@ -136,6 +139,20 @@ class OptimizadorCuadrante:
     # ------------------------------------------------------------------
     # Construcción del modelo
     # ------------------------------------------------------------------
+    def _reservado_a_jefes(self, turno: Turno, puesto: Puesto, festivo_finde: bool) -> bool:
+        """Indica si el turno-puesto está reservado a los jefes de equipo ese día.
+
+        El puesto F1 de mañana (MT-F1) en día laborable solo pueden realizarlo los
+        jefes de equipo. En fin de semana o festivo no hay reserva.
+        """
+        return (
+            self.config.reservar_f1_manana_a_jefes
+            and self._hay_jefes
+            and not festivo_finde
+            and turno is Turno.MANANA_TARDE
+            and puesto is Puesto.F1
+        )
+
     def _crear_variables(self) -> None:
         for trabajador in self.trabajadores:
             for dia in self.calendario.dias:
@@ -147,6 +164,11 @@ class OptimizadorCuadrante:
                     if not trabajador.puede_realizar(turno, puesto):
                         continue
                     if not self._disponibilidad[(trabajador.id, dia)]:
+                        continue
+                    # Reserva de F1 de mañana a los jefes de equipo en día laborable:
+                    # no se crea la variable para el resto de trabajadores, con lo que
+                    # queda prohibido que lo realicen.
+                    if self._reservado_a_jefes(turno, puesto, festivo_finde) and not trabajador.es_jefe_equipo:
                         continue
                     self.x[(trabajador.id, dia, turno, puesto)] = self.modelo.NewBoolVar(
                         f"x_{trabajador.id}_{dia}_{turno.value}_{puesto.value}"

@@ -31,6 +31,7 @@ class _PlantillaTrabajador:
     puestos_nocturnos: set = field(default_factory=lambda: {Puesto.F1, Puesto.F2})
     puede_hacer_noches: bool = True
     fines_semana_exactos: int | None = None
+    es_jefe_equipo: bool = False
     notas: str = ""
 
     def a_trabajador(self) -> Trabajador:
@@ -40,6 +41,7 @@ class _PlantillaTrabajador:
             puestos_nocturnos_permitidos=set(self.puestos_nocturnos),
             puede_hacer_noches=self.puede_hacer_noches,
             fines_semana_exactos=self.fines_semana_exactos,
+            es_jefe_equipo=self.es_jefe_equipo,
             notas=self.notas,
         )
 
@@ -50,17 +52,20 @@ class _PlantillaTrabajador:
 # reflejar altas y bajas del equipo.
 # ---------------------------------------------------------------------------
 EQUIPO_ACTUAL: list[_PlantillaTrabajador] = [
-    # Luis y Fernando son JEFES DE EQUIPO: por su condición realizan únicamente
-    # F1-MT, nunca hacen noches y trabajan exactamente un fin de semana al mes.
-    # Estas tres condiciones son fijas y deben mantenerse siempre.
+    # Luis y Fernando son JEFES DE EQUIPO: pueden realizar cualquier puesto SIEMPRE
+    # que sea de mañana (nunca noches) y trabajan exactamente un fin de semana al
+    # mes. Además, el puesto F1 de mañana en día laborable queda reservado a ellos
+    # (en fin de semana o festivo lo puede hacer cualquiera).
     _PlantillaTrabajador(
-        "FERNANDO CEMBRERO ANTOLÍN", {Puesto.F1}, set(), puede_hacer_noches=False,
-        fines_semana_exactos=1,
-        notas="Jefe de equipo. Solo F1-MT. Nunca noches. Exactamente un fin de semana al mes."),
+        "FERNANDO CEMBRERO ANTOLÍN", set(_TODOS), set(), puede_hacer_noches=False,
+        fines_semana_exactos=1, es_jefe_equipo=True,
+        notas="Jefe de equipo. Cualquier puesto de mañana. Nunca noches. Un fin de "
+              "semana al mes. F1 de mañana en laborable reservado a jefes."),
     _PlantillaTrabajador(
-        "LUIS PERALTA ROS", {Puesto.F1}, set(), puede_hacer_noches=False,
-        fines_semana_exactos=1,
-        notas="Jefe de equipo. Solo F1-MT. Nunca noches. Exactamente un fin de semana al mes."),
+        "LUIS PERALTA ROS", set(_TODOS), set(), puede_hacer_noches=False,
+        fines_semana_exactos=1, es_jefe_equipo=True,
+        notas="Jefe de equipo. Cualquier puesto de mañana. Nunca noches. Un fin de "
+              "semana al mes. F1 de mañana en laborable reservado a jefes."),
     _PlantillaTrabajador(
         "MOHAMED AMAR MOHAMED", {Puesto.MO}, {Puesto.F1, Puesto.F2},
         notas="Solo MO de mañana o cualquier puesto de noche. Nunca F1/F2/EX-MT."),

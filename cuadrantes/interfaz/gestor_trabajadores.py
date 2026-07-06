@@ -40,6 +40,8 @@ class DialogoTrabajador(QtWidgets.QDialog):
         self.w_findes.setValue(
             self.trabajador.fines_semana_exactos
             if self.trabajador.fines_semana_exactos is not None else -1)
+        self.w_jefe = QtWidgets.QCheckBox("Reserva MT-F1 en laborables; cualquier puesto de mañana")
+        self.w_jefe.setChecked(self.trabajador.es_jefe_equipo)
         self.w_pref_dia = QtWidgets.QCheckBox()
         self.w_pref_dia.setChecked(self.trabajador.prefiere_turno_dia)
         self.w_pref_noche = QtWidgets.QCheckBox()
@@ -48,6 +50,7 @@ class DialogoTrabajador(QtWidgets.QDialog):
         disp.addRow("Nombre:", self.w_nombre)
         disp.addRow("Activo:", self.w_activo)
         disp.addRow("Cómputo mensual:", self.w_cm)
+        disp.addRow("Jefe de equipo:", self.w_jefe)
         disp.addRow("Puede hacer noches:", self.w_noches)
         disp.addRow("Fines de semana exactos/mes:", self.w_findes)
 
@@ -89,6 +92,7 @@ class DialogoTrabajador(QtWidgets.QDialog):
         t.activo = self.w_activo.isChecked()
         t.computo_mensual = self.w_cm.value()
         t.puede_hacer_noches = self.w_noches.isChecked()
+        t.es_jefe_equipo = self.w_jefe.isChecked()
         valor_findes = self.w_findes.value()
         t.fines_semana_exactos = None if valor_findes < 0 else valor_findes
         t.prefiere_turno_dia = self.w_pref_dia.isChecked()
