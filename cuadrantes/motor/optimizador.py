@@ -310,12 +310,23 @@ class OptimizadorCuadrante:
             fines_totales[trabajador.id] = ft
 
         # (2) Equilibrio: minimizar el rango (máx - mín) de cada magnitud.
+        # El rango de cada magnitud se calcula únicamente sobre el subconjunto de
+        # trabajadores al que la regla aplica, para no distorsionar el equilibrio
+        # con quienes tienen restricciones (p. ej. Luis y Fernando no hacen noches
+        # ni más de un fin de semana, así que no deben arrastrar el reparto del
+        # resto de la plantilla).
         ids = [t.id for t in self.trabajadores]
+        ids_noche = [t.id for t in self.trabajadores if t.puede_hacer_noches]
+        ids_finde_libre = [t.id for t in self.trabajadores if t.fines_semana_exactos is None]
 
-        def termino_rango(valores: dict[int, cp_model.IntVar], cota: int, nombre: str):
+        def termino_rango(valores: dict[int, cp_model.IntVar], cota: int, nombre: str,
+                          ids_subconjunto: list[int] | None = None):
+            objetivo = ids_subconjunto if ids_subconjunto is not None else ids
+            if len(objetivo) < 2:
+                return 0  # Con menos de dos trabajadores no hay reparto que equilibrar.
             maximo = self.modelo.NewIntVar(0, cota, f"max_{nombre}")
             minimo = self.modelo.NewIntVar(0, cota, f"min_{nombre}")
-            for i in ids:
+            for i in objetivo:
                 self.modelo.Add(maximo >= valores[i])
                 self.modelo.Add(minimo <= valores[i])
             rango = self.modelo.NewIntVar(0, cota, f"rango_{nombre}")
@@ -323,11 +334,10 @@ class OptimizadorCuadrante:
             return rango
 
         terminos.append(pesos.equilibrio_horas * termino_rango(turnos_totales, max_turnos, "horas"))
-        terminos.append(pesos.equilibrio_noches * termino_rango(noches_totales, max_turnos, "noches"))
-        terminos.append(
-            pesos.equilibrio_fines_semana
-            * termino_rango(fines_totales, len(sabados) or 1, "fines")
-        )
+        terminos.append(pesos.equilibrio_noches * termino_rango(
+            noches_totales, max_turnos, "noches", ids_subconjunto=ids_noche))
+        terminos.append(pesos.equilibrio_fines_semana * termino_rango(
+            fines_totales, len(sabados) or 1, "fines", ids_subconjunto=ids_finde_libre))
 
         # (3) Compensación histórica: penaliza asignar turnos a quien más ha
         #     trabajado en meses anteriores (desvío positivo respecto a la media).
