@@ -58,6 +58,7 @@ class VentanaPrincipal(QtWidgets.QMainWindow):
         accion("📋  Informes", self.exportar_informes)
         barra.addSeparator()
         accion("👥  Trabajadores", self.gestionar_trabajadores)
+        accion("🏖️  Vacaciones/bajas/PR", self.gestionar_ausencias)
         accion("⚙️  Configuración", self.abrir_configuracion)
         accion("💾  Copia de seguridad", self.copia_seguridad)
 
@@ -270,6 +271,11 @@ class VentanaPrincipal(QtWidgets.QMainWindow):
     def gestionar_trabajadores(self) -> None:
         GestorTrabajadores(self.servicio, self).exec()
         self.vista_calendario.trabajadores = self.servicio.mapa_trabajadores()
+
+    def gestionar_ausencias(self) -> None:
+        from .gestor_ausencias import GestorAusencias
+
+        GestorAusencias(self.servicio, self).exec()
 
     def abrir_configuracion(self) -> None:
         panel = PanelConfiguracion(self.servicio.configuracion(), self)

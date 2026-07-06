@@ -45,11 +45,12 @@ def cargar_plantilla_ejemplo(servicio: ServicioCuadrantes) -> int:
           notas="Solo MO de mañana o cualquier puesto de noche. Nunca F1/F2/EX-MT.")
 
     # --- Resto de la plantilla (polivalente) ---
+    # Equipo actual del centro (AV. SAN LUIS 77) a fecha de julio de 2026.
     for nombre in (
+        "EUGENIA DEL PILAR VILEMA VILEMA",
         "SANTIAGO R. MANRIQUE GÓMEZ", "DANIEL LABERNIA GONZÁLEZ",
         "JAVIER CALDERON FERNÁNDEZ", "Mª VICTORIA CANO MARTINEZ",
-        "JAVIER PEREZ GALLARDO", "JUAN ANTONIO MOLINA SEVILLA",
-        "IVAN DIAZ MOYA", "RAUL PARRA MIGUEL",
+        "JAVIER PEREZ GALLARDO", "IVÁN DÍAZ MOYA",
     ):
         nuevo(nombre, todos, {Puesto.F1, Puesto.F2})
 

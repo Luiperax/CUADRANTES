@@ -84,9 +84,18 @@ Desde la barra de herramientas:
 
 ## 9. Gestión de trabajadores
 
-En **«Trabajadores»** puede dar de alta, editar o desactivar personal y configurar
-sus **restricciones individuales**: puestos habilitados de día y de noche,
-prohibición de noches, preferencias y cómputo mensual personal.
+En **«Trabajadores»** puede **añadir o quitar** personal del equipo, editar o
+desactivar trabajadores y configurar sus **restricciones individuales**: puestos
+habilitados de día y de noche, prohibición de noches, número exacto de fines de
+semana al mes, preferencias y cómputo mensual personal.
+
+## 9 bis. Vacaciones, bajas y permisos
+
+En **«Vacaciones/bajas/PR»** puede registrar en cualquier momento (sin pasar por
+el asistente) las ausencias del equipo: vacaciones, bajas médicas, permisos
+retribuidos y sin sueldo, formación y asuntos propios. Cada ausencia se indica con
+trabajador, tipo, fecha de inicio, fecha de fin y descripción, y se aplica
+automáticamente al generar el cuadrante del mes correspondiente.
 
 ## 10. Configuración de reglas
 
