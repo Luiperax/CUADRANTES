@@ -116,12 +116,16 @@ class GestorTrabajadores(QtWidgets.QDialog):
         b_add = QtWidgets.QPushButton("➕ Nuevo")
         b_edit = QtWidgets.QPushButton("✏️ Editar")
         b_del = QtWidgets.QPushButton("🗑️ Eliminar")
+        b_sync = QtWidgets.QPushButton("🔄 Sincronizar con equipo actual")
+        b_sync.setObjectName("primario")
         b_add.clicked.connect(self.nuevo)
         b_edit.clicked.connect(self.editar)
         b_del.clicked.connect(self.eliminar)
+        b_sync.clicked.connect(self.sincronizar)
         for b in (b_add, b_edit, b_del):
             botones.addWidget(b)
         botones.addStretch()
+        botones.addWidget(b_sync)
         disp.addLayout(botones)
         self.recargar()
 
@@ -162,3 +166,29 @@ class GestorTrabajadores(QtWidgets.QDialog):
         ) == QtWidgets.QMessageBox.Yes:
             self.servicio.trabajadores.eliminar(tid)
             self.recargar()
+
+    def sincronizar(self) -> None:
+        """Reconcilia la plantilla con el equipo actual definido en el sistema.
+
+        Los trabajadores que ya no forman parte del equipo se **desactivan** (no se
+        borran) para conservar el histórico de cuadrantes.
+        """
+        from ..datos.datos_iniciales import sincronizar_equipo
+
+        if QtWidgets.QMessageBox.question(
+            self, "Sincronizar con el equipo actual",
+            "Se dará de alta a quien falte y se DESACTIVARÁ (sin borrar) a quien ya "
+            "no pertenezca al equipo actual. El histórico se conserva.\n\n¿Continuar?"
+        ) != QtWidgets.QMessageBox.Yes:
+            return
+        cambios = sincronizar_equipo(self.servicio)
+        self.recargar()
+
+        def _lista(nombres):
+            return "\n  · " + "\n  · ".join(nombres) if nombres else " (ninguno)"
+
+        QtWidgets.QMessageBox.information(
+            self, "Sincronización completada",
+            f"Altas:{_lista(cambios['altas'])}\n\n"
+            f"Reactivados:{_lista(cambios['reactivados'])}\n\n"
+            f"Desactivados:{_lista(cambios['desactivados'])}")
