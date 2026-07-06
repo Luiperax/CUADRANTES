@@ -19,7 +19,10 @@ import argparse
 import sys
 from pathlib import Path
 
-RUTA_BD = "datos/cuadrantes.db"
+from cuadrantes.rutas import ruta_base_datos
+
+# Ruta compartida por la interfaz de escritorio y la versión web (sincronización).
+RUTA_BD = str(ruta_base_datos())
 
 
 def _generar_sin_interfaz(anio: int, mes: int) -> int:

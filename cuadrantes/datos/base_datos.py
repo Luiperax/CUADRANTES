@@ -136,6 +136,11 @@ class BaseDatos:
         self.conexion.row_factory = sqlite3.Row
         self.conexion.execute("PRAGMA foreign_keys = ON;")
         self.conexion.execute("PRAGMA journal_mode = WAL;")  # Mayor robustez ante fallos.
+        # WAL permite que la aplicación de escritorio y la web (varios procesos)
+        # compartan el mismo fichero: lectores concurrentes y un escritor. El
+        # «busy_timeout» hace que, si ambos escriben a la vez, se espere en lugar de
+        # fallar. Esto es lo que sincroniza ambas aplicaciones sobre la misma base.
+        self.conexion.execute("PRAGMA busy_timeout = 5000;")
         self.crear_esquema()
 
     def crear_esquema(self) -> None:

@@ -31,10 +31,12 @@ from ..datos.datos_iniciales import cargar_plantilla_ejemplo, sincronizar_equipo
 from ..datos.modelos import Ausencia, Trabajador
 from ..dominio.calendario import CalendarioMes
 from ..dominio.computos import calcular_resumenes
+from ..rutas import ruta_base_datos
 from ..servicio import ServicioCuadrantes
 
 _BASE = Path(__file__).parent
-_RUTA_BD = "datos/cuadrantes.db"
+# Ruta compartida con la aplicación de escritorio (misma base de datos).
+_RUTA_BD = str(ruta_base_datos())
 
 
 def crear_app(ruta_bd: str = _RUTA_BD) -> FastAPI:

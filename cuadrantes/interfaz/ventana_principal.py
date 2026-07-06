@@ -57,6 +57,7 @@ class VentanaPrincipal(QtWidgets.QMainWindow):
         accion("📄  Exportar PDF", self.exportar_pdf)
         accion("📋  Informes", self.exportar_informes)
         barra.addSeparator()
+        accion("🔄  Actualizar", self.actualizar)
         accion("👥  Trabajadores", self.gestionar_trabajadores)
         accion("🏖️  Vacaciones/bajas/PR", self.gestionar_ausencias)
         accion("⚙️  Configuración", self.abrir_configuracion)
@@ -267,6 +268,33 @@ class VentanaPrincipal(QtWidgets.QMainWindow):
         if cuadrante:
             self.cuadrante_actual = cuadrante
             self._mostrar_cuadrante(cuadrante)
+
+    def actualizar(self, silencioso: bool = False) -> None:
+        """Recarga los datos desde la base de datos.
+
+        Permite ver de inmediato los cambios realizados desde la versión web (u
+        otro proceso) sobre la misma base de datos compartida. Como cada edición
+        manual se autoguarda, recargar no pierde información.
+        """
+        self.vista_calendario.trabajadores = self.servicio.mapa_trabajadores()
+        self.recargar_historico()
+        if self.cuadrante_actual and self.cuadrante_actual.id is not None:
+            recargado = self.servicio.cuadrantes.cargar(self.cuadrante_actual.id)
+            if recargado:
+                self.cuadrante_actual = recargado
+                self._mostrar_cuadrante(recargado)
+        if not silencioso:
+            self.indicador.setText("Datos actualizados desde la base de datos compartida")
+
+    def changeEvent(self, evento) -> None:  # noqa: N802 (API de Qt)
+        """Refresca automáticamente al volver a activar la ventana.
+
+        Así, al volver al ordenador tras haber usado la versión web en el móvil,
+        el cuadrante se sincroniza solo.
+        """
+        if evento.type() == QtCore.QEvent.ActivationChange and self.isActiveWindow():
+            self.actualizar(silencioso=True)
+        super().changeEvent(evento)
 
     def gestionar_trabajadores(self) -> None:
         GestorTrabajadores(self.servicio, self).exec()
