@@ -61,6 +61,13 @@ Estando en la misma red Wi-Fi, abra en el teléfono la dirección
 `http://IP-DEL-PC:8000` que muestra la ventana. Guía completa en
 [`docs/USO_MOVIL.md`](docs/USO_MOVIL.md).
 
+Para acceder **desde cualquier lugar**, hay dos caminos:
+
+- **Con alojamiento en la nube** (URL fija siempre disponible): ver
+  [`docs/DESPLIEGUE.md`](docs/DESPLIEGUE.md).
+- **Sin alojamiento** (ejecutándolo en su propio ordenador, con Tailscale o
+  Cloudflare Tunnel): ver [`docs/ACCESO_SIN_NUBE.md`](docs/ACCESO_SIN_NUBE.md).
+
 ---
 
 ## 3. Elección tecnológica (justificación)
