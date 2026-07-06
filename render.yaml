@@ -1,17 +1,23 @@
 # Plano de despliegue para Render (https://render.com).
 # Da una URL fija del tipo https://cuadrantes-seguridad.onrender.com
 #
-# Pasos: en Render -> New -> Blueprint -> conecte este repositorio.
-# Render leerá este fichero y creará el servicio. Después, en «Environment»,
-# introduzca el valor de CUADRANTES_PASSWORD.
+# Pasos (todo desde el navegador, también del móvil):
+#   1. Cuenta en render.com (gratis, sin tarjeta) conectada a GitHub.
+#   2. New -> Blueprint -> seleccione el repositorio. Render lee este fichero.
+#   3. Apply. Después, en «Environment», defina CUADRANTES_PASSWORD.
 #
-# Nota: el disco persistente (para conservar los datos) requiere un plan de pago.
-# En el plan gratuito la base de datos se reinicia en cada despliegue.
+# Este fichero usa el PLAN GRATUITO. Ten en cuenta que en el plan gratuito la base
+# de datos NO es permanente: se reinicia en cada nuevo despliegue y el servicio se
+# «duerme» tras un rato de inactividad (la primera visita luego tarda unos segundos).
+# Descargue el Excel/PDF de cada cuadrante como copia.
+#
+# Para datos PERMANENTES, cambie «plan: free» por «plan: starter» y descomente el
+# bloque «disk» del final (requiere un plan de pago de Render, ~7 USD/mes).
 services:
   - type: web
     name: cuadrantes-seguridad
     runtime: docker
-    plan: starter
+    plan: free
     envVars:
       - key: CUADRANTES_DB
         value: /data/cuadrantes.db
@@ -19,7 +25,8 @@ services:
         value: admin
       - key: CUADRANTES_PASSWORD
         sync: false            # Se introduce en el panel (secreto), no en el repo.
-    disk:
-      name: datos
-      mountPath: /data
-      sizeGB: 1
+    # --- Para datos permanentes (plan de pago), descomente y use plan: starter ---
+    # disk:
+    #   name: datos
+    #   mountPath: /data
+    #   sizeGB: 1
