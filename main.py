@@ -49,6 +49,31 @@ def _generar_sin_interfaz(anio: int, mes: int) -> int:
     return 0
 
 
+def _iniciar_web(host: str, port: int) -> int:
+    """Arranca el servidor web (versión utilizable desde el móvil)."""
+    import socket
+
+    import uvicorn
+
+    # Mostrar la dirección de la red local para abrirla desde el móvil.
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip_local = s.getsockname()[0]
+        s.close()
+    except OSError:
+        ip_local = "127.0.0.1"
+    print("=" * 60)
+    print("  Generador de Cuadrantes — versión web")
+    print(f"  En este equipo:      http://127.0.0.1:{port}")
+    print(f"  Desde el móvil/red:  http://{ip_local}:{port}")
+    print("  (El móvil debe estar en la misma red Wi-Fi que este equipo.)")
+    print("  Pulse Ctrl+C para detener el servidor.")
+    print("=" * 60)
+    uvicorn.run("cuadrantes.web.app:app", host=host, port=port, log_level="info")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Generador de Cuadrantes de Seguridad Privada")
     parser.add_argument("--asistente", action="store_true",
@@ -57,10 +82,19 @@ def main() -> int:
                         help="Activa el programador interno del día 15.")
     parser.add_argument("--generar", nargs=2, metavar=("AAAA", "MM"), type=int,
                         help="Genera y exporta un cuadrante sin interfaz.")
+    parser.add_argument("--web", action="store_true",
+                        help="Arranca la versión web (accesible desde el móvil).")
+    parser.add_argument("--host", default="0.0.0.0",
+                        help="Dirección de escucha de la versión web (por defecto 0.0.0.0).")
+    parser.add_argument("--port", type=int, default=8000,
+                        help="Puerto de la versión web (por defecto 8000).")
     args = parser.parse_args()
 
     if args.generar:
         return _generar_sin_interfaz(args.generar[0], args.generar[1])
+
+    if args.web:
+        return _iniciar_web(args.host, args.port)
 
     # Modo interfaz gráfica.
     from cuadrantes.interfaz.aplicacion import iniciar

@@ -6,3 +6,10 @@ openpyxl>=3.1         # Exportación a Excel con formato NATURGY.
 reportlab>=4.0        # Exportación a PDF (cuadrante e informes).
 PySide6>=6.6          # Interfaz gráfica en modo oscuro (Qt for Python).
 APScheduler>=3.10     # Programador de la ejecución automática del día 15.
+
+# Versión web (uso desde el móvil o el navegador). Opcional: solo necesaria
+# si se usa «python main.py --web».
+fastapi>=0.110        # Servidor web ligero que reutiliza el mismo motor.
+uvicorn[standard]>=0.27  # Servidor ASGI para ejecutar la versión web.
+jinja2>=3.1           # Plantillas HTML de la versión web.
+python-multipart>=0.0.9  # Procesado de formularios de la versión web.

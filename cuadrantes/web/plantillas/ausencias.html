@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block titulo %}Ausencias{% endblock %}
+{% block contenido %}
+
+<h1>Vacaciones, bajas y permisos</h1>
+
+<details class="tarjeta" open>
+  <summary>➕ Registrar ausencia</summary>
+  <form action="/ausencias/nueva" method="post" class="form-vertical">
+    <label>Trabajador
+      <select name="trabajador_id" required>
+        {% for t in trabajadores %}<option value="{{ t.id }}">{{ t.nombre }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Tipo
+      <select name="tipo">
+        {% for tp in tipos %}<option value="{{ tp.value }}">{{ tp.descripcion }}</option>{% endfor %}
+      </select>
+    </label>
+    <div class="fila-form">
+      <label class="mitad">Inicio<input type="date" name="inicio" required></label>
+      <label class="mitad">Fin<input type="date" name="fin" required></label>
+    </div>
+    <label>Descripción (opcional)<input type="text" name="descripcion"></label>
+    <button type="submit" class="btn primario">Guardar ausencia</button>
+  </form>
+</details>
+
+{% if ausencias %}
+  <ul class="lista">
+    {% for a in ausencias %}
+      <li class="fila-lista">
+        <span class="fila-principal">
+          {{ nombres.get(a.trabajador_id, a.trabajador_id) }}
+          <span class="etiqueta">{{ a.tipo.descripcion }}</span>
+          <br><small class="tenue">{{ a.fecha_inicio.strftime('%d/%m/%Y') }} – {{ a.fecha_fin.strftime('%d/%m/%Y') }}</small>
+        </span>
+        <form action="/ausencias/{{ a.id }}/eliminar" method="post" class="en-linea">
+          <button type="submit" class="btn pequeno">Eliminar</button>
+        </form>
+      </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p class="tenue vacio">No hay ausencias registradas.</p>
+{% endif %}
+{% endblock %}

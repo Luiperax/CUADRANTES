@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block titulo %}Cuadrantes{% endblock %}
+{% block contenido %}
+
+<section class="tarjeta destacada">
+  <h1>Generar cuadrante</h1>
+  <p class="tenue">Equipo actual: {{ n_trabajadores }} trabajadores activos. Registre antes las
+  vacaciones, bajas y permisos del mes en la pestaña «Ausencias».</p>
+  <form action="/generar" method="post" class="fila-form" onsubmit="mostrarCarga()">
+    <select name="mes" aria-label="Mes">
+      {% for m in range(1, 13) %}
+        <option value="{{ m }}" {% if m == mes_sugerido %}selected{% endif %}>{{ m|mes }}</option>
+      {% endfor %}
+    </select>
+    <input type="number" name="anio" value="{{ anio_sugerido }}" min="2020" max="2100" aria-label="Año">
+    <button type="submit" class="btn primario">Generar</button>
+  </form>
+  <p id="carga" class="cargando" hidden>⏳ Optimizando el cuadrante… puede tardar unos segundos.</p>
+</section>
+
+<h2 class="titulo-seccion">Histórico</h2>
+{% if cabeceras %}
+  <ul class="lista">
+    {% for c in cabeceras %}
+      <li>
+        <a href="/cuadrante/{{ c.id }}" class="fila-lista">
+          <span class="fila-principal">{{ c.mes|mes }} {{ c.anio }} <span class="version">v{{ c.version }}</span></span>
+          <span class="estado estado-{{ c.estado }}">{{ c.estado.replace('_', ' ')|title }}</span>
+        </a>
+      </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p class="tenue vacio">Aún no hay cuadrantes generados. Cree el primero arriba.</p>
+{% endif %}
+
+<script>
+function mostrarCarga(){ document.getElementById('carga').hidden = false; }
+</script>
+{% endblock %}

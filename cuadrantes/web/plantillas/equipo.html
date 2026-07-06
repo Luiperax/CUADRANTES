@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block titulo %}Equipo{% endblock %}
+{% block contenido %}
+
+<h1>Equipo</h1>
+<form action="/equipo/sincronizar" method="post" class="fila-form">
+  <button type="submit" class="btn">🔄 Sincronizar con el equipo actual</button>
+</form>
+
+<details class="tarjeta">
+  <summary>➕ Añadir trabajador</summary>
+  <form action="/equipo/nuevo" method="post" class="form-vertical">
+    <label>Nombre<input type="text" name="nombre" required placeholder="Nombre y apellidos"></label>
+    <label>¿Puede hacer noches?
+      <select name="puede_noches">
+        <option value="si">Sí</option>
+        <option value="no">No (p. ej. jefe de equipo)</option>
+      </select>
+    </label>
+    <button type="submit" class="btn primario">Guardar</button>
+  </form>
+</details>
+
+<ul class="lista">
+  {% for t in trabajadores %}
+    <li class="fila-lista">
+      <span class="fila-principal {% if not t.activo %}inactivo{% endif %}">
+        {{ t.nombre }}
+        {% if not t.activo %}<span class="etiqueta">inactivo</span>{% endif %}
+        {% if not t.puede_hacer_noches %}<span class="etiqueta e-noche">sin noches</span>{% endif %}
+        {% if t.fines_semana_exactos is not none %}<span class="etiqueta e-finde">{{ t.fines_semana_exactos }} FS</span>{% endif %}
+      </span>
+      <form action="/equipo/{{ t.id }}/baja" method="post" class="en-linea">
+        <button type="submit" class="btn pequeno">{{ 'Reactivar' if not t.activo else 'Desactivar' }}</button>
+      </form>
+    </li>
+  {% endfor %}
+</ul>
+{% endblock %}

@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block titulo %}{{ cuad.mes|mes }} {{ cuad.anio }}{% endblock %}
+{% block contenido %}
+
+<div class="cabecera-cuadrante">
+  <div>
+    <h1>{{ cuad.mes|mes }} {{ cuad.anio }} <span class="version">v{{ cuad.version }}</span></h1>
+    <span class="estado estado-{{ cuad.estado.value }}">{{ cuad.estado.descripcion }}</span>
+  </div>
+</div>
+
+<div class="descargas">
+  <a class="btn" href="/cuadrante/{{ cuad.id }}/excel">⬇ Excel</a>
+  <a class="btn" href="/cuadrante/{{ cuad.id }}/pdf">⬇ PDF</a>
+  <a class="btn" href="/cuadrante/{{ cuad.id }}/informes">⬇ Informes</a>
+</div>
+
+<div class="pestanas">
+  <button class="pest activa" data-obj="tab-cal">Calendario</button>
+  <button class="pest" data-obj="tab-aud">Auditoría</button>
+  <button class="pest" data-obj="tab-est">Estadísticas</button>
+</div>
+
+<section id="tab-cal" class="panel-tab activo">
+  <p class="tenue nota-scroll">Desliza la tabla horizontalmente para ver todo el mes.</p>
+  <div class="tabla-scroll">
+    <table class="cuadro">
+      <thead>
+        <tr>
+          <th class="col-nombre">Trabajador</th>
+          {% for d in dias %}<th class="{% if d.finde %}c-finde{% endif %}">{{ d.n }}<br><small>{{ d.letra }}</small></th>{% endfor %}
+          <th>H.T.</th><th>H.E.</th><th>H.N</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in filas %}
+        <tr>
+          <th class="col-nombre">{{ f.nombre }}</th>
+          {% for c in f.celdas %}
+            <td class="c-{{ c.clase }}"><b>{{ c.turno }}</b><br><small>{{ c.puesto }}</small></td>
+          {% endfor %}
+          <td class="num">{{ f.ht|int }}</td>
+          <td class="num">{{ '%+d'|format(f.he|int) }}</td>
+          <td class="num">{{ f.hn|int }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="tab-aud" class="panel-tab">
+  {% for r in informe.reglas %}
+    <div class="regla regla-{{ r.estado.value|lower|replace(' ', '') }}">
+      <div class="regla-cab">
+        <span class="regla-nombre">{{ r.nombre }}</span>
+        <span class="regla-estado e-{{ r.estado.name|lower }}">{{ r.estado.value }}</span>
+      </div>
+      {% if r.motivo %}<p class="tenue">{{ r.motivo }}</p>{% endif %}
+      {% if r.solucion_propuesta and r.estado.value != 'Cumple' %}
+        <p class="solucion">💡 {{ r.solucion_propuesta }}</p>{% endif %}
+    </div>
+  {% endfor %}
+</section>
+
+<section id="tab-est" class="panel-tab">
+  {% for tid, r in resumenes.items() %}
+    {% set nombre = trabajadores[tid].nombre if tid in trabajadores else tid %}
+    <div class="est-fila">
+      <span class="est-nombre">{{ nombre }}</span>
+      <span class="est-datos">
+        <span title="Horas">{{ r.horas_trabajadas|int }} h</span>
+        <span title="Noches" class="e-noche">{{ r.numero_noches }} N</span>
+        <span title="Fines de semana" class="e-finde">{{ r.numero_fines_semana }} FS</span>
+      </span>
+    </div>
+  {% endfor %}
+</section>
+
+<script>
+document.querySelectorAll('.pest').forEach(function(b){
+  b.addEventListener('click', function(){
+    document.querySelectorAll('.pest').forEach(x=>x.classList.remove('activa'));
+    document.querySelectorAll('.panel-tab').forEach(x=>x.classList.remove('activo'));
+    b.classList.add('activa');
+    document.getElementById(b.dataset.obj).classList.add('activo');
+  });
+});
+</script>
+{% endblock %}

@@ -50,7 +50,16 @@ Mohamed solo `MO` de día o noches).
 python main.py --asistente            # Abre el asistente del mes siguiente.
 python main.py --programador          # Activa el aviso automático del día 15.
 python main.py --generar 2026 9       # Genera y exporta septiembre 2026 sin interfaz.
+python main.py --web                  # Versión web, utilizable desde el móvil.
 ```
+
+### Uso desde el móvil
+
+La versión web (`python main.py --web` o, en Windows, `ejecutar_movil.bat`) levanta
+un servidor que reutiliza el mismo motor y se abre desde el navegador del móvil.
+Estando en la misma red Wi-Fi, abra en el teléfono la dirección
+`http://IP-DEL-PC:8000` que muestra la ventana. Guía completa en
+[`docs/USO_MOVIL.md`](docs/USO_MOVIL.md).
 
 ---
 

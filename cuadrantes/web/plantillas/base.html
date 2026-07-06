@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#14151b">
+  <title>{% block titulo %}Cuadrantes{% endblock %} · Seguridad Privada</title>
+  <link rel="stylesheet" href="/estaticos/estilo.css">
+</head>
+<body>
+  <header class="cabecera">
+    <a href="/" class="marca"><span class="punto"></span> Cuadrantes</a>
+    <span class="sede">NATURGY · AV. SAN LUIS 77</span>
+  </header>
+
+  <main class="contenido">
+    {% block contenido %}{% endblock %}
+  </main>
+
+  <nav class="barra-inferior">
+    <a href="/"><span class="ico">📅</span>Cuadrantes</a>
+    <a href="/equipo"><span class="ico">👥</span>Equipo</a>
+    <a href="/ausencias"><span class="ico">🏖️</span>Ausencias</a>
+  </nav>
+</body>
+</html>
