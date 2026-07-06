@@ -18,11 +18,14 @@ conexión entre hilos distintos.
 from __future__ import annotations
 
 import io
+import os
+import secrets
 from datetime import date
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, Form, Request
+from fastapi import Depends, FastAPI, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -39,9 +42,38 @@ _BASE = Path(__file__).parent
 _RUTA_BD = str(ruta_base_datos())
 
 
+def _dependencias_seguridad() -> list:
+    """Protege toda la aplicación con usuario y contraseña si están configurados.
+
+    Al desplegar en una URL pública, defina las variables de entorno
+    ``CUADRANTES_PASSWORD`` (y opcionalmente ``CUADRANTES_USER``, por defecto
+    «admin»). Si no se define contraseña, la aplicación queda abierta, lo adecuado
+    para un uso local en la red interna.
+    """
+    usuario = os.environ.get("CUADRANTES_USER", "admin")
+    clave = os.environ.get("CUADRANTES_PASSWORD")
+    if not clave:
+        return []
+
+    seguridad = HTTPBasic()
+
+    def verificar(credenciales: HTTPBasicCredentials = Depends(seguridad)):
+        usuario_ok = secrets.compare_digest(credenciales.username, usuario)
+        clave_ok = secrets.compare_digest(credenciales.password, clave)
+        if not (usuario_ok and clave_ok):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Usuario o contraseña incorrectos",
+                headers={"WWW-Authenticate": "Basic"},
+            )
+
+    return [Depends(verificar)]
+
+
 def crear_app(ruta_bd: str = _RUTA_BD) -> FastAPI:
     """Crea y configura la aplicación web."""
-    app = FastAPI(title="Cuadrantes de Seguridad Privada")
+    app = FastAPI(title="Cuadrantes de Seguridad Privada",
+                  dependencies=_dependencias_seguridad())
     plantillas = Jinja2Templates(directory=str(_BASE / "plantillas"))
     app.mount("/estaticos", StaticFiles(directory=str(_BASE / "estaticos")), name="estaticos")
     plantillas.env.filters["mes"] = lambda m: NOMBRES_MES[m].capitalize()

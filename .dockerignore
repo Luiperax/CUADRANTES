@@ -1,0 +1,15 @@
+.git
+.venv
+venv
+__pycache__
+*.pyc
+datos
+exportaciones
+copias_seguridad
+*.db
+*.db-wal
+*.db-shm
+docs
+recursos
+tests
+JavaHerencia

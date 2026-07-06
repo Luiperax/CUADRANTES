@@ -1,0 +1,25 @@
+# Plano de despliegue para Render (https://render.com).
+# Da una URL fija del tipo https://cuadrantes-seguridad.onrender.com
+#
+# Pasos: en Render -> New -> Blueprint -> conecte este repositorio.
+# Render leerá este fichero y creará el servicio. Después, en «Environment»,
+# introduzca el valor de CUADRANTES_PASSWORD.
+#
+# Nota: el disco persistente (para conservar los datos) requiere un plan de pago.
+# En el plan gratuito la base de datos se reinicia en cada despliegue.
+services:
+  - type: web
+    name: cuadrantes-seguridad
+    runtime: docker
+    plan: starter
+    envVars:
+      - key: CUADRANTES_DB
+        value: /data/cuadrantes.db
+      - key: CUADRANTES_USER
+        value: admin
+      - key: CUADRANTES_PASSWORD
+        sync: false            # Se introduce en el panel (secreto), no en el repo.
+    disk:
+      name: datos
+      mountPath: /data
+      sizeGB: 1
