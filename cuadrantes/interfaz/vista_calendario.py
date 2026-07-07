@@ -99,6 +99,14 @@ class VistaCalendario(QtWidgets.QWidget):
         self.tabla.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
         self.tabla.cellDoubleClicked.connect(self._editar_celda)
         self.tabla.verticalHeader().setVisible(False)
+        self.tabla.setWordWrap(True)
+        # No recortar el texto con «…»: preferimos mostrar el código completo.
+        self.tabla.setTextElideMode(QtCore.Qt.ElideNone)
+        # Fuente compacta para que quepan los 31 días en la ventana.
+        fuente = self.tabla.font()
+        fuente.setPointSize(8)
+        self.tabla.setFont(fuente)
+        self.tabla.horizontalHeader().setMinimumSectionSize(18)
         disp.addWidget(self.tabla)
 
     # ------------------------------------------------------------------
@@ -134,9 +142,6 @@ class VistaCalendario(QtWidgets.QWidget):
 
         cabeceras = ["Trabajador"] + [f"{d}\n{cal.letra_dia(d)}" for d in cal.dias] + ["H.T.", "H.E.", "H.N"]
         self.tabla.setHorizontalHeaderLabels(cabeceras)
-        self.tabla.horizontalHeader().setDefaultSectionSize(30)
-        self.tabla.setColumnWidth(0, 200)
-
         resumenes = calcular_resumenes(self.cuadrante, self.trabajadores, cal)
 
         for i, tid in enumerate(ids):
@@ -183,6 +188,33 @@ class VistaCalendario(QtWidgets.QWidget):
             self.tabla.setItem(fila_computo, dia, celda)
 
         self.tabla.resizeRowsToContents()
+        self._ajustar_columnas()
+
+    def _ajustar_columnas(self) -> None:
+        """Ajusta el ancho de las columnas para que el mes quepa en la ventana.
+
+        Reparte el espacio disponible entre los 31 días de modo que el calendario
+        se vea entero sin desplazamiento horizontal siempre que sea posible; si la
+        ventana es muy estrecha, usa un ancho mínimo legible y permite desplazar.
+        """
+        if not self.calendario:
+            return
+        n_dias = self.calendario.numero_dias
+        ancho_nombre = 150
+        ancho_computo = 40
+        disponible = self.tabla.viewport().width()
+        espacio_dias = disponible - ancho_nombre - 3 * ancho_computo - 6
+        ancho_dia = max(20, int(espacio_dias / n_dias)) if espacio_dias > 0 else 24
+
+        self.tabla.setColumnWidth(0, ancho_nombre)
+        for dia in range(1, n_dias + 1):
+            self.tabla.setColumnWidth(dia, ancho_dia)
+        for c in (1 + n_dias, 2 + n_dias, 3 + n_dias):
+            self.tabla.setColumnWidth(c, ancho_computo)
+
+    def resizeEvent(self, evento) -> None:  # noqa: N802 (API de Qt)
+        super().resizeEvent(evento)
+        self._ajustar_columnas()
 
     @staticmethod
     def _color_texto_para(fondo: str) -> QtGui.QColor:
