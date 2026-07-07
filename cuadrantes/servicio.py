@@ -68,9 +68,11 @@ class ServicioCuadrantes:
         restricciones = self.restricciones.listar_por_mes(anio, mes)
         festivos = {f.fecha for f in self.festivos.listar_por_mes(anio, mes)}
 
-        # Memoria histórica de los meses anteriores.
+        # Memoria histórica de los meses anteriores. Se aportan los festivos de cada
+        # mes para contar correctamente quién ha trabajado los festivos del año.
         previos = self.cuadrantes.cargar_historico(anio, mes, config.meses_historico_considerados)
-        carga = AgregadorHistorico(previos).calcular()
+        festivos_por_mes = self.festivos.mapa_por_mes()
+        carga = AgregadorHistorico(previos, festivos_por_mes).calcular()
 
         optimizador = OptimizadorCuadrante(
             anio=anio, mes=mes, trabajadores=trabajadores, configuracion=config,
@@ -107,8 +109,10 @@ class ServicioCuadrantes:
     def exportar_informes(self, cuadrante: Cuadrante, ruta: str | Path) -> Path:
         ausencias = self.ausencias.listar_por_mes(cuadrante.anio, cuadrante.mes)
         incidencias = self.incidencias.listar_por_mes(cuadrante.anio, cuadrante.mes)
+        festivos = {f.fecha for f in self.festivos.listar_por_mes(cuadrante.anio, cuadrante.mes)}
         generador = GeneradorInformes(
-            cuadrante, self.mapa_trabajadores(), self.configuracion(), ausencias, incidencias
+            cuadrante, self.mapa_trabajadores(), self.configuracion(), ausencias,
+            incidencias, festivos=festivos
         )
         return generador.exportar_pdf(ruta)
 

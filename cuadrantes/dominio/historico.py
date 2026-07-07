@@ -33,8 +33,18 @@ class CargaHistorica:
 class AgregadorHistorico:
     """Calcula la carga histórica acumulada por trabajador."""
 
-    def __init__(self, cuadrantes_previos: list[Cuadrante]):
+    def __init__(
+        self,
+        cuadrantes_previos: list[Cuadrante],
+        festivos_por_mes: dict[tuple[int, int], set[int]] | None = None,
+    ):
+        """
+        :param cuadrantes_previos: cuadrantes de meses anteriores.
+        :param festivos_por_mes: días festivos de cada mes ``{(año, mes): {días}}``,
+            necesario para contar correctamente quién trabajó los festivos pasados.
+        """
         self.cuadrantes = cuadrantes_previos
+        self.festivos_por_mes = festivos_por_mes or {}
 
     def calcular(self) -> dict[int, CargaHistorica]:
         """Devuelve un diccionario ``{trabajador_id: CargaHistorica}``."""
@@ -45,7 +55,11 @@ class AgregadorHistorico:
             # por cada sábado en el que el trabajador tuvo asignación de trabajo.
             from .calendario import CalendarioMes
 
-            calendario = CalendarioMes(cuadrante.anio, cuadrante.mes)
+            from datetime import date as _date
+
+            festivos_dias = self.festivos_por_mes.get((cuadrante.anio, cuadrante.mes), set())
+            festivos_fechas = {_date(cuadrante.anio, cuadrante.mes, d) for d in festivos_dias}
+            calendario = CalendarioMes(cuadrante.anio, cuadrante.mes, festivos_fechas)
             sabados = set(calendario.sabados())
             festivos_finde = {d for d in calendario.dias if calendario.es_festivo_o_finde(d)}
 
@@ -98,6 +112,7 @@ class AgregadorHistorico:
         media_horas = media("horas_totales")
         media_noches = media("noches")
         media_fines = media("fines_semana")
+        media_festivos = media("festivos")
 
         desvios: dict[int, dict[str, float]] = {}
         for t in trabajadores_ids:
@@ -106,5 +121,6 @@ class AgregadorHistorico:
                 "horas": carga.horas_totales - media_horas,
                 "noches": carga.noches - media_noches,
                 "fines_semana": carga.fines_semana - media_fines,
+                "festivos": carga.festivos - media_festivos,
             }
         return desvios

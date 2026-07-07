@@ -128,6 +128,7 @@ class PanelConfiguracion(QtWidgets.QDialog):
             "equilibrio_horas_extra": "Equilibrio de horas extra",
             "equilibrio_noches": "Equilibrio de noches",
             "equilibrio_fines_semana": "Equilibrio de fines de semana",
+            "equilibrio_festivos": "Equilibrio de festivos (anual)",
             "rotacion_puestos": "Rotación de puestos",
             "respetar_preferencias": "Respetar preferencias",
             "agrupar_descansos": "Agrupar descansos",

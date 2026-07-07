@@ -65,13 +65,14 @@ class GeneradorInformes:
         configuracion: Configuracion,
         ausencias: list[Ausencia] | None = None,
         incidencias: list[Incidencia] | None = None,
+        festivos: set | None = None,
     ):
         self.cuadrante = cuadrante
         self.trabajadores = trabajadores
         self.config = configuracion
         self.ausencias = ausencias or []
         self.incidencias = incidencias or []
-        self.calendario = CalendarioMes(cuadrante.anio, cuadrante.mes)
+        self.calendario = CalendarioMes(cuadrante.anio, cuadrante.mes, festivos or set())
         self.resumenes = calcular_resumenes(cuadrante, trabajadores, self.calendario)
 
     def _nombre(self, tid: int) -> str:

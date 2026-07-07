@@ -65,6 +65,9 @@ class PesosObjetivos:
     equilibrio_horas_extra: int = 90
     equilibrio_noches: int = 80
     equilibrio_fines_semana: int = 80
+    # Equilibrio ANUAL de festivos: reparte los festivos trabajados de forma pareja
+    # entre trabajadores teniendo en cuenta el histórico (festivos ya trabajados).
+    equilibrio_festivos: int = 85
     # Cumplimiento del objetivo individual de fines de semana (p. ej. Luis y
     # Fernando, jefes de equipo: exactamente uno al mes). Peso muy alto para que
     # domine con claridad al resto de objetivos blandos (incluida la compensación

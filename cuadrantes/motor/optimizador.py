@@ -410,6 +410,31 @@ class OptimizadorCuadrante:
         terminos.append(pesos.equilibrio_fines_semana * termino_rango(
             fines_totales, len(sabados) or 1, "fines", ids_subconjunto=ids_finde_libre))
 
+        # Equilibrio ANUAL de festivos: se balancea el total (festivos ya trabajados
+        # en meses anteriores + festivos de este mes), de modo que a lo largo del año
+        # todos trabajen un número parecido de festivos. Quien más festivos lleva
+        # recibe menos este mes.
+        festivo_dias = [d for d in self.calendario.dias if self.calendario.es_festivo(d)]
+        if festivo_dias:
+            fest_hist = {
+                t.id: (self.carga_historica[t.id].festivos if t.id in self.carga_historica else 0)
+                for t in self.trabajadores
+            }
+            cota_fest = len(festivo_dias) + (max(fest_hist.values()) if fest_hist else 0) + 1
+            carga_festivos: dict[int, cp_model.IntVar] = {}
+            for trabajador in self.trabajadores:
+                vars_fest = [
+                    v for d in festivo_dias
+                    for v in self._variable_trabaja(trabajador.id, d)
+                ]
+                fest_mes = self.modelo.NewIntVar(0, len(festivo_dias), f"festmes_{trabajador.id}")
+                self.modelo.Add(fest_mes == (sum(vars_fest) if vars_fest else 0))
+                total_fest = self.modelo.NewIntVar(0, cota_fest, f"festtot_{trabajador.id}")
+                self.modelo.Add(total_fest == fest_mes + fest_hist[trabajador.id])
+                carga_festivos[trabajador.id] = total_fest
+            terminos.append(pesos.equilibrio_festivos * termino_rango(
+                carga_festivos, cota_fest, "festivos"))
+
         # (3) Compensación histórica: penaliza asignar turnos a quien más ha
         #     trabajado en meses anteriores (desvío positivo respecto a la media).
         if self.carga_historica:

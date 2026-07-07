@@ -263,6 +263,20 @@ class RepositorioFestivos:
             for f in filas
         ]
 
+    def listar_todos(self) -> list[Festivo]:
+        filas = self.bd.conexion.execute("SELECT * FROM festivos ORDER BY fecha").fetchall()
+        return [
+            Festivo(id=f["id"], fecha=date.fromisoformat(f["fecha"]), descripcion=f["descripcion"])
+            for f in filas
+        ]
+
+    def mapa_por_mes(self) -> dict[tuple[int, int], set[int]]:
+        """Devuelve ``{(año, mes): {días festivos}}`` con todos los festivos."""
+        mapa: dict[tuple[int, int], set[int]] = {}
+        for festivo in self.listar_todos():
+            mapa.setdefault((festivo.fecha.year, festivo.fecha.month), set()).add(festivo.fecha.day)
+        return mapa
+
     def eliminar(self, festivo_id: int) -> None:
         with self.bd.transaccion() as con:
             con.execute("DELETE FROM festivos WHERE id=?", (festivo_id,))
