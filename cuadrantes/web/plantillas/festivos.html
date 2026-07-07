@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block titulo %}Festivos{% endblock %}
+{% block contenido %}
+
+<h1>Festivos</h1>
+<p class="tenue">Calendario configurado: {{ comunidad }} · {{ municipio }}. Cargue los
+festivos oficiales del año y ajuste lo que necesite.</p>
+
+<form action="/festivos/cargar" method="post" class="fila-form">
+  <input type="number" name="anio" value="{{ anio_sugerido }}" min="2020" max="2100" aria-label="Año">
+  <button type="submit" class="btn primario">📅 Cargar festivos oficiales</button>
+</form>
+
+<details class="tarjeta">
+  <summary>➕ Añadir festivo manual</summary>
+  <form action="/festivos/nuevo" method="post" class="form-vertical">
+    <label>Fecha<input type="date" name="fecha" required></label>
+    <label>Descripción<input type="text" name="descripcion" placeholder="p. ej. Festivo local"></label>
+    <button type="submit" class="btn primario">Guardar</button>
+  </form>
+</details>
+
+{% if festivos %}
+  <ul class="lista">
+    {% for f in festivos %}
+      <li class="fila-lista">
+        <span class="fila-principal">
+          {{ f.fecha.strftime('%d/%m/%Y') }}
+          <br><small class="tenue">{{ f.descripcion }}</small>
+        </span>
+        <form action="/festivos/{{ f.id }}/eliminar" method="post" class="en-linea"
+              onsubmit="return confirm('¿Eliminar este festivo?');">
+          <button type="submit" class="btn pequeno">Eliminar</button>
+        </form>
+      </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p class="tenue vacio">No hay festivos registrados. Cárguelos con el botón de arriba.</p>
+{% endif %}
+{% endblock %}

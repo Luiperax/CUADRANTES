@@ -254,6 +254,34 @@ def crear_app(ruta_bd: str = _RUTA_BD) -> FastAPI:
         srv.ausencias.eliminar(ausencia_id)
         return RedirectResponse("/ausencias", status_code=303)
 
+    # ------------------------------------------------------------------
+    @app.get("/festivos", response_class=HTMLResponse)
+    def festivos(request: Request, srv: ServicioCuadrantes = Depends(obtener_servicio)):
+        hoy = date.today()
+        cfg = srv.configuracion()
+        return _ctx(request, "festivos.html",
+                    festivos=srv.festivos.listar_todos(),
+                    anio_sugerido=hoy.year + (1 if hoy.month >= 11 else 0),
+                    comunidad=cfg.comunidad_autonoma, municipio=cfg.municipio)
+
+    @app.post("/festivos/cargar")
+    def festivos_cargar(anio: int = Form(...), srv: ServicioCuadrantes = Depends(obtener_servicio)):
+        srv.cargar_festivos_oficiales(anio)
+        return RedirectResponse("/festivos", status_code=303)
+
+    @app.post("/festivos/nuevo")
+    def festivo_nuevo(fecha: str = Form(...), descripcion: str = Form(""),
+                      srv: ServicioCuadrantes = Depends(obtener_servicio)):
+        from ..datos.modelos import Festivo
+
+        srv.festivos.guardar(Festivo(id=None, fecha=date.fromisoformat(fecha), descripcion=descripcion))
+        return RedirectResponse("/festivos", status_code=303)
+
+    @app.post("/festivos/{festivo_id}/eliminar")
+    def festivo_eliminar(festivo_id: int, srv: ServicioCuadrantes = Depends(obtener_servicio)):
+        srv.festivos.eliminar(festivo_id)
+        return RedirectResponse("/festivos", status_code=303)
+
     return app
 
 

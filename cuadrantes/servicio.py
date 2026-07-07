@@ -80,6 +80,26 @@ class ServicioCuadrantes:
             anadidos += 1
         return anadidos
 
+    def cargar_festivos_oficiales(self, anio: int) -> int:
+        """Carga (o actualiza) los festivos oficiales del año indicado.
+
+        A diferencia de :meth:`asegurar_festivos_oficiales`, esta versión siempre
+        inserta el calendario oficial de la comunidad/municipio configurados
+        (sobrescribiendo por fecha), pensada para el botón «Cargar festivos» del
+        gestor. Los festivos personalizados en otras fechas se conservan.
+
+        :return: número de festivos del calendario oficial cargados.
+        """
+        from .datos.modelos import Festivo
+        from .dominio.festivos_espana import festivos_del_anio
+
+        config = self.configuracion()
+        cargados = 0
+        for fecha, descripcion in festivos_del_anio(anio, config.comunidad_autonoma, config.municipio):
+            self.festivos.guardar(Festivo(id=None, fecha=fecha, descripcion=descripcion))
+            cargados += 1
+        return cargados
+
     def generar(self, anio: int, mes: int, guardar: bool = True) -> ResultadoOptimizacion:
         """Genera el cuadrante de un mes teniendo en cuenta el histórico.
 

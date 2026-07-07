@@ -60,6 +60,7 @@ class VentanaPrincipal(QtWidgets.QMainWindow):
         accion("🔄  Actualizar", self.actualizar)
         accion("👥  Trabajadores", self.gestionar_trabajadores)
         accion("🏖️  Vacaciones/bajas/PR", self.gestionar_ausencias)
+        accion("📅  Festivos", self.gestionar_festivos)
         accion("⚙️  Configuración", self.abrir_configuracion)
         accion("💾  Copia de seguridad", self.copia_seguridad)
 
@@ -328,6 +329,11 @@ class VentanaPrincipal(QtWidgets.QMainWindow):
         from .gestor_ausencias import GestorAusencias
 
         GestorAusencias(self.servicio, self).exec()
+
+    def gestionar_festivos(self) -> None:
+        from .gestor_festivos import GestorFestivos
+
+        GestorFestivos(self.servicio, self).exec()
 
     def abrir_configuracion(self) -> None:
         panel = PanelConfiguracion(self.servicio.configuracion(), self)
