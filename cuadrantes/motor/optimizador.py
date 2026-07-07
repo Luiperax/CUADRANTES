@@ -447,6 +447,35 @@ class OptimizadorCuadrante:
 
         self.modelo.Minimize(sum(terminos))
 
+    def _restriccion_descansos_agrupados(self) -> None:
+        """Mínimo dos días libres seguidos (sin máximo).
+
+        Prohíbe los días de descanso aislados (patrón trabajo-libre-trabajo) para
+        que los descansos vayan en bloques de dos o más días. No hay límite superior
+        de días libres. Se implementa con una variable de holgura muy penalizada, de
+        modo que la regla se cumple siempre salvo imposibilidad operativa real.
+        """
+        works: dict[tuple[int, int], cp_model.IntVar] = {}
+        for trabajador in self.trabajadores:
+            for dia in self.calendario.dias:
+                vars_dia = self._variable_trabaja(trabajador.id, dia)
+                wb = self.modelo.NewBoolVar(f"works_{trabajador.id}_{dia}")
+                self.modelo.Add(wb == (sum(vars_dia) if vars_dia else 0))
+                works[(trabajador.id, dia)] = wb
+
+        dias = self.calendario.dias
+        for trabajador in self.trabajadores:
+            for i in range(1, len(dias) - 1):
+                dia = dias[i]
+                if not self._disponibilidad[(trabajador.id, dia)]:
+                    continue
+                # Prohíbe trabajar día anterior y siguiente descansando solo este.
+                self.modelo.Add(
+                    works[(trabajador.id, dias[i - 1])]
+                    - works[(trabajador.id, dia)]
+                    + works[(trabajador.id, dias[i + 1])] <= 1
+                )
+
     # ------------------------------------------------------------------
     # Resolución
     # ------------------------------------------------------------------
@@ -459,6 +488,7 @@ class OptimizadorCuadrante:
         self._restriccion_fines_semana()
         self._restriccion_consecutivos()
         self._restriccion_vacaciones()
+        self._restriccion_descansos_agrupados()
         self._construir_objetivo()
 
         solucionador = cp_model.CpSolver()

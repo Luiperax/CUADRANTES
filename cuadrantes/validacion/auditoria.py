@@ -233,11 +233,25 @@ class Auditor:
             if maximo_racha > max_dias:
                 infracciones.append(f"{self._nombre(tid)} ({maximo_racha} días seguidos)")
                 afectados.add(self._nombre(tid))
+
+        # Descansos aislados (un solo día libre entre dos de trabajo): debería ser 0.
+        aislados: list[str] = []
+        for tid in self.resumenes:
+            for dia in self.calendario.dias[1:-1]:
+                hoy = self.cuadrante.obtener(tid, dia)
+                ant = self.cuadrante.obtener(tid, dia - 1)
+                sig = self.cuadrante.obtener(tid, dia + 1)
+                es_libre = bool(hoy and not hoy.es_trabajo and hoy.ausencia is None)
+                if (es_libre and ant and ant.es_trabajo and sig and sig.es_trabajo):
+                    aislados.append(f"{self._nombre(tid)} (día {dia})")
+        if aislados:
+            infracciones.append("días libres aislados: " + "; ".join(aislados[:5]))
+
         if infracciones:
             return ResultadoRegla(
                 "Descansos", EstadoRegla.ADVERTENCIA,
-                motivo="Rachas superiores al máximo de " + str(max_dias) + " días: " + "; ".join(infracciones[:6]),
-                solucion_propuesta="Intercalar un día de descanso en las rachas señaladas.",
+                motivo="; ".join(infracciones[:6]),
+                solucion_propuesta="Agrupar los descansos en bloques de al menos dos días.",
                 trabajadores_afectados=sorted(afectados),
             )
         return ResultadoRegla("Descansos", EstadoRegla.CUMPLE,

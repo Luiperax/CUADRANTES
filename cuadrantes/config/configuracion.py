@@ -73,7 +73,9 @@ class PesosObjetivos:
     objetivo_finde_individual: int = 20000
     rotacion_puestos: int = 30
     respetar_preferencias: int = 40
-    agrupar_descansos: int = 25
+    # Reservado: los descansos agrupados (mínimo dos días libres seguidos, sin
+    # máximo) se aplican como restricción del motor, no como peso.
+    agrupar_descansos: int = 70
     recuperacion_tras_noche: int = 35
     evitar_cambios_bruscos: int = 45
     adaptacion_vacaciones: int = 50
