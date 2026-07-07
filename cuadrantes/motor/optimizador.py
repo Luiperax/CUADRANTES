@@ -65,6 +65,10 @@ class ResultadoOptimizacion:
 
 # Penalización muy alta para dejar un puesto sin cubrir (solo como último recurso).
 PENALIZACION_SIN_CUBRIR = 1_000_000
+# Penalización por cada día de descanso aislado. Alta para que se respete el mínimo
+# de dos días libres seguidos, pero muy por debajo de la de cobertura: así la regla
+# cede antes de dejar un puesto sin cubrir (nunca causa un problema operativo).
+PENALIZACION_DESCANSO_AISLADO = 8_000
 
 
 class OptimizadorCuadrante:
@@ -102,6 +106,8 @@ class OptimizadorCuadrante:
         # La reserva de MT-F1 a jefes solo tiene sentido si existe al menos un jefe;
         # de lo contrario el puesto quedaría sin poder cubrirse.
         self._hay_jefes = any(t.es_jefe_equipo for t in trabajadores)
+        # Holguras de la regla de descansos agrupados (se penalizan en el objetivo).
+        self._slacks_descanso: list[cp_model.IntVar] = []
 
     # ------------------------------------------------------------------
     # Preparación de datos
@@ -321,6 +327,11 @@ class OptimizadorCuadrante:
         # (1) Penalización dura por puestos sin cubrir.
         terminos.append(PENALIZACION_SIN_CUBRIR * sum(self.holgura.values()))
 
+        # (1 bis) Penalización por descansos aislados (mínimo dos días libres
+        # seguidos). Alta, pero cede antes que la cobertura del servicio.
+        if self._slacks_descanso:
+            terminos.append(PENALIZACION_DESCANSO_AISLADO * sum(self._slacks_descanso))
+
         # Totales por trabajador.
         turnos_totales: dict[int, cp_model.IntVar] = {}
         noches_totales: dict[int, cp_model.IntVar] = {}
@@ -469,12 +480,17 @@ class OptimizadorCuadrante:
                 dia = dias[i]
                 if not self._disponibilidad[(trabajador.id, dia)]:
                     continue
-                # Prohíbe trabajar día anterior y siguiente descansando solo este.
+                # Prohíbe trabajar día anterior y siguiente descansando solo este,
+                # salvo que la holgura lo permita (penalizada en el objetivo). Así la
+                # regla se respeta siempre que sea posible, pero cede si es necesario
+                # para cubrir el servicio, sin causar problemas.
+                holgura = self.modelo.NewBoolVar(f"holgura_descanso_{trabajador.id}_{dia}")
                 self.modelo.Add(
                     works[(trabajador.id, dias[i - 1])]
                     - works[(trabajador.id, dia)]
-                    + works[(trabajador.id, dias[i + 1])] <= 1
+                    + works[(trabajador.id, dias[i + 1])] - holgura <= 1
                 )
+                self._slacks_descanso.append(holgura)
 
     # ------------------------------------------------------------------
     # Resolución
