@@ -49,6 +49,11 @@ class Trabajador:
     # F1 de mañana (MT-F1) en día laborable solo pueden realizarlo ellos. En fin de
     # semana o festivo ese puesto lo puede hacer cualquiera.
     es_jefe_equipo: bool = False
+    # Prioridad para el reparto del F1 de mañana entre jefes de equipo. Los días de
+    # MT-F1 laborable se reparten a partes iguales entre los jefes; cuando el número
+    # no es par, el día de más se asigna al jefe con MAYOR prioridad. (Ej.: Luis con
+    # prioridad mayor que Fernando recibe el día extra.)
+    prioridad_jefe: int = 0
 
     # Preferencias (objetivos blandos).
     prefiere_turno_dia: bool = False

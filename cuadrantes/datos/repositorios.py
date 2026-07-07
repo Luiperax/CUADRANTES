@@ -57,6 +57,7 @@ class RepositorioTrabajadores:
             puede_hacer_noches=bool(fila["puede_hacer_noches"]),
             fines_semana_exactos=fila["fines_semana_exactos"],
             es_jefe_equipo=bool(fila["es_jefe_equipo"]),
+            prioridad_jefe=fila["prioridad_jefe"],
             prefiere_turno_dia=bool(fila["prefiere_turno_dia"]),
             prefiere_turno_noche=bool(fila["prefiere_turno_noche"]),
             notas=fila["notas"],
@@ -72,6 +73,7 @@ class RepositorioTrabajadores:
             int(trabajador.puede_hacer_noches),
             trabajador.fines_semana_exactos,
             int(trabajador.es_jefe_equipo),
+            trabajador.prioridad_jefe,
             int(trabajador.prefiere_turno_dia),
             int(trabajador.prefiere_turno_noche),
             trabajador.notas,
@@ -82,8 +84,8 @@ class RepositorioTrabajadores:
                     "INSERT INTO trabajadores (nombre, activo, computo_mensual,"
                     " puestos_diurnos_permitidos, puestos_nocturnos_permitidos,"
                     " puede_hacer_noches, fines_semana_exactos, es_jefe_equipo,"
-                    " prefiere_turno_dia, prefiere_turno_noche, notas)"
-                    " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    " prioridad_jefe, prefiere_turno_dia, prefiere_turno_noche, notas)"
+                    " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     datos,
                 )
                 trabajador.id = cur.lastrowid
@@ -93,7 +95,7 @@ class RepositorioTrabajadores:
                     "UPDATE trabajadores SET nombre=?, activo=?, computo_mensual=?,"
                     " puestos_diurnos_permitidos=?, puestos_nocturnos_permitidos=?,"
                     " puede_hacer_noches=?, fines_semana_exactos=?, es_jefe_equipo=?,"
-                    " prefiere_turno_dia=?, prefiere_turno_noche=?, notas=?"
+                    " prioridad_jefe=?, prefiere_turno_dia=?, prefiere_turno_noche=?, notas=?"
                     " WHERE id=?",
                     datos + (trabajador.id,),
                 )

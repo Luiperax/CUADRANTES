@@ -311,6 +311,42 @@ class Auditor:
         return ResultadoRegla("Vacaciones y adaptación", EstadoRegla.CUMPLE,
                               motivo="Se respetan los periodos de adaptación de las vacaciones.")
 
+    def _regla_reparto_f1_jefes(self) -> ResultadoRegla:
+        """El F1 de mañana laborable se reparte por igual entre jefes (extra al de
+        mayor prioridad)."""
+        from ..config.constantes import Puesto, Turno
+
+        jefes = sorted(
+            [t for t in self.trabajadores.values() if t.es_jefe_equipo],
+            key=lambda t: (-t.prioridad_jefe, t.id),
+        )
+        if len(jefes) < 2:
+            return ResultadoRegla("Reparto F1 de mañana (jefes)", EstadoRegla.CUMPLE,
+                                  motivo="No procede (menos de dos jefes de equipo).")
+        laborables = [d for d in self.calendario.dias
+                      if not self.calendario.es_festivo_o_finde(d)]
+
+        def f1_lab(tid):
+            return sum(
+                1 for d in laborables
+                if (a := self.cuadrante.obtener(tid, d)) and a.es_trabajo
+                and a.turno is Turno.MANANA_TARDE and a.puesto is Puesto.F1
+            )
+
+        conteos = {j.id: f1_lab(j.id) for j in jefes}
+        detalle = ", ".join(f"{j.nombre.split()[0]}={conteos[j.id]}" for j in jefes)
+        for superior, inferior in zip(jefes, jefes[1:]):
+            cs, ci = conteos[superior.id], conteos[inferior.id]
+            if ci > cs or (cs - ci) > 1:
+                return ResultadoRegla(
+                    "Reparto F1 de mañana (jefes)", EstadoRegla.ADVERTENCIA,
+                    motivo=f"Reparto no equilibrado ({detalle}).",
+                    solucion_propuesta="Igualar los días de MT-F1 laborable entre jefes "
+                                       "(suele deberse a ausencias de algún jefe ese mes).",
+                    trabajadores_afectados=[superior.nombre, inferior.nombre])
+        return ResultadoRegla("Reparto F1 de mañana (jefes)", EstadoRegla.CUMPLE,
+                              motivo=f"Reparto equilibrado ({detalle}).")
+
     def _regla_rotacion(self) -> ResultadoRegla:
         # Comprobación ligera: que ningún trabajador polivalente repita siempre el mismo puesto.
         monotonos: list[str] = []
@@ -349,6 +385,7 @@ class Auditor:
             self._regla_fines_semana(),
             self._regla_descansos(),
             self._regla_vacaciones(),
+            self._regla_reparto_f1_jefes(),
             self._regla_rotacion(),
             self._regla_cambios_turno(),
         ]

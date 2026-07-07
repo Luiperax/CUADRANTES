@@ -32,6 +32,7 @@ class _PlantillaTrabajador:
     puede_hacer_noches: bool = True
     fines_semana_exactos: int | None = None
     es_jefe_equipo: bool = False
+    prioridad_jefe: int = 0
     notas: str = ""
 
     def a_trabajador(self) -> Trabajador:
@@ -42,6 +43,7 @@ class _PlantillaTrabajador:
             puede_hacer_noches=self.puede_hacer_noches,
             fines_semana_exactos=self.fines_semana_exactos,
             es_jefe_equipo=self.es_jefe_equipo,
+            prioridad_jefe=self.prioridad_jefe,
             notas=self.notas,
         )
 
@@ -58,14 +60,15 @@ EQUIPO_ACTUAL: list[_PlantillaTrabajador] = [
     # (en fin de semana o festivo lo puede hacer cualquiera).
     _PlantillaTrabajador(
         "FERNANDO CEMBRERO ANTOLÍN", set(_TODOS), set(), puede_hacer_noches=False,
-        fines_semana_exactos=1, es_jefe_equipo=True,
+        fines_semana_exactos=1, es_jefe_equipo=True, prioridad_jefe=1,
         notas="Jefe de equipo. Cualquier puesto de mañana. Nunca noches. Un fin de "
               "semana al mes. F1 de mañana en laborable reservado a jefes."),
     _PlantillaTrabajador(
         "LUIS PERALTA ROS", set(_TODOS), set(), puede_hacer_noches=False,
-        fines_semana_exactos=1, es_jefe_equipo=True,
+        fines_semana_exactos=1, es_jefe_equipo=True, prioridad_jefe=2,
         notas="Jefe de equipo. Cualquier puesto de mañana. Nunca noches. Un fin de "
-              "semana al mes. F1 de mañana en laborable reservado a jefes."),
+              "semana al mes. F1 de mañana en laborable reservado a jefes. Recibe el "
+              "día extra de MT-F1 cuando el reparto no es par (prioridad mayor)."),
     _PlantillaTrabajador(
         "MOHAMED AMAR MOHAMED", {Puesto.MO}, {Puesto.F1, Puesto.F2},
         notas="Solo MO de mañana o cualquier puesto de noche. Nunca F1/F2/EX-MT."),

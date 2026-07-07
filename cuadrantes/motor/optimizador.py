@@ -69,6 +69,8 @@ PENALIZACION_SIN_CUBRIR = 1_000_000
 # de dos días libres seguidos, pero muy por debajo de la de cobertura: así la regla
 # cede antes de dejar un puesto sin cubrir (nunca causa un problema operativo).
 PENALIZACION_DESCANSO_AISLADO = 8_000
+# Penalización por desviación en el reparto de F1 de mañana laborable entre jefes.
+PENALIZACION_REPARTO_F1 = 10_000
 
 
 class OptimizadorCuadrante:
@@ -455,6 +457,35 @@ class OptimizadorCuadrante:
                     dias_trab == turnos_totales[trabajador.id] - noches_totales[trabajador.id]
                 )
                 terminos.append(-pesos.respetar_preferencias * dias_trab)
+
+        # (7) Reparto del F1 de mañana en días laborables entre los jefes de equipo:
+        # a partes iguales y, cuando el número no es par, el día de más para el jefe
+        # de mayor prioridad (por ejemplo, Luis por encima de Fernando).
+        jefes = sorted(
+            [t for t in self.trabajadores if t.es_jefe_equipo],
+            key=lambda t: (-t.prioridad_jefe, t.id),
+        )
+        if len(jefes) >= 2:
+            laborables = [d for d in self.calendario.dias
+                          if not self.calendario.es_festivo_o_finde(d)]
+            conteo: dict[int, cp_model.IntVar] = {}
+            for jefe in jefes:
+                vars_f1 = [
+                    self.x[(jefe.id, d, Turno.MANANA_TARDE, Puesto.F1)]
+                    for d in laborables
+                    if (jefe.id, d, Turno.MANANA_TARDE, Puesto.F1) in self.x
+                ]
+                c = self.modelo.NewIntVar(0, len(laborables) or 1, f"f1lab_{jefe.id}")
+                self.modelo.Add(c == (sum(vars_f1) if vars_f1 else 0))
+                conteo[jefe.id] = c
+            # Para cada par (mayor prioridad, siguiente): el de menor prioridad no
+            # debe superar al de mayor, y el de mayor no debe superarle en más de 1.
+            for superior, inferior in zip(jefes, jefes[1:]):
+                exceso_inferior = self.modelo.NewIntVar(0, len(laborables) or 1, f"f1_exc_{inferior.id}")
+                self.modelo.Add(exceso_inferior >= conteo[inferior.id] - conteo[superior.id])
+                desbalance = self.modelo.NewIntVar(0, len(laborables) or 1, f"f1_des_{superior.id}")
+                self.modelo.Add(desbalance >= conteo[superior.id] - conteo[inferior.id] - 1)
+                terminos.append(PENALIZACION_REPARTO_F1 * (exceso_inferior + desbalance))
 
         self.modelo.Minimize(sum(terminos))
 
