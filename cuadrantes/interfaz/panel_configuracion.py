@@ -62,9 +62,12 @@ class PanelConfiguracion(QtWidgets.QDialog):
         self.w_cm = self._spin(self.config.computo_mensual_referencia, 0, 400, 2)
         self.w_tiempo = self._spin(self.config.tiempo_maximo_solver_segundos, 5, 600)
         self.w_meses = self._spin(self.config.meses_historico_considerados, 0, 60)
+        self.w_horas_ausencia = self._spin(
+            self.config.horas_computo_por_dia_ausencia, 0, 24, decimales=2)
         f.addRow("Empresa:", self.w_empresa)
         f.addRow("Sede:", self.w_sede)
         f.addRow("Cómputo mensual (C.M.):", self.w_cm)
+        f.addRow("Horas por día de vacaciones/permiso:", self.w_horas_ausencia)
         f.addRow("Tiempo máx. solucionador (s):", self.w_tiempo)
         f.addRow("Meses de histórico considerados:", self.w_meses)
         return w
@@ -147,6 +150,7 @@ class PanelConfiguracion(QtWidgets.QDialog):
         c.computo_mensual_referencia = self.w_cm.value()
         c.tiempo_maximo_solver_segundos = self.w_tiempo.value()
         c.meses_historico_considerados = self.w_meses.value()
+        c.horas_computo_por_dia_ausencia = self.w_horas_ausencia.value()
 
         c.descanso.max_dias_consecutivos = self.w_max_dias.value()
         c.descanso.max_noches_consecutivas = self.w_max_noches.value()

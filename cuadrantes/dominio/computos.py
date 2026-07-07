@@ -8,6 +8,7 @@ informes y validación utilicen exactamente los mismos números.
 from __future__ import annotations
 
 from ..config.constantes import (
+    HORAS_COMPUTO_POR_DIA_AUSENCIA,
     HORAS_NOCTURNAS_POR_NOCHE,
     HORAS_POR_TURNO,
 )
@@ -19,6 +20,7 @@ def calcular_resumenes(
     cuadrante: Cuadrante,
     trabajadores: dict[int, Trabajador],
     calendario: CalendarioMes | None = None,
+    horas_computo_por_dia_ausencia: float = HORAS_COMPUTO_POR_DIA_AUSENCIA,
 ) -> dict[int, ResumenTrabajadorMes]:
     """Calcula los cómputos de cada trabajador del cuadrante.
 
@@ -26,6 +28,9 @@ def calcular_resumenes(
     :param trabajadores: diccionario ``{id: Trabajador}`` para obtener el
         cómputo mensual personal (necesario para las horas extra).
     :param calendario: calendario del mes (se crea si no se aporta).
+    :param horas_computo_por_dia_ausencia: horas que aporta cada día de ausencia
+        computable (vacaciones, permiso retribuido, formación). Reduce el cómputo
+        mensual exigible, igual que en los cuadrantes reales de NATURGY.
     :return: diccionario ``{trabajador_id: ResumenTrabajadorMes}``.
     """
     if calendario is None:
@@ -58,16 +63,23 @@ def calcular_resumenes(
 
             if asignacion.ausencia is TipoAusencia.VACACIONES:
                 resumen.dias_vacaciones += 1
-            elif asignacion.ausencia in (None, TipoAusencia.LIBRE):
+            if asignacion.ausencia is TipoAusencia.LIBRE:
                 resumen.dias_libres += 1
+            # Vacaciones, permiso retribuido y formación aportan horas de cómputo.
+            if asignacion.ausencia.cuenta_como_trabajada:
+                resumen.dias_ausencia_computable += 1
+                resumen.horas_computo_ausencias += horas_computo_por_dia_ausencia
         else:
             resumen.dias_libres += 1
 
-    # Horas extra = horas trabajadas - cómputo mensual personal.
+    # El cómputo mensual exigible se reduce con las ausencias computables (cada
+    # día de vacaciones/permiso «cuenta» como horas). Las horas extra (H.E.) se
+    # calculan respecto a ese cómputo efectivo, igual que en el cuadrante original.
     for trabajador_id, resumen in resumenes.items():
         trabajador = trabajadores.get(trabajador_id)
         computo = trabajador.computo_mensual if trabajador else cuadrante.computo_mensual
-        resumen.horas_extra = round(resumen.horas_trabajadas - computo, 1)
+        resumen.computo_efectivo = round(computo - resumen.horas_computo_ausencias, 2)
+        resumen.horas_extra = round(resumen.horas_trabajadas - resumen.computo_efectivo, 1)
 
     return resumenes
 

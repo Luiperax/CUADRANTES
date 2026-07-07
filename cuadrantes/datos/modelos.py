@@ -189,8 +189,8 @@ class ResumenTrabajadorMes:
     """Cómputos mensuales de un trabajador (columnas H.T./H.E./H.N. y más)."""
 
     trabajador_id: int
-    horas_trabajadas: float = 0.0       # H.T.
-    horas_extra: float = 0.0            # H.E.
+    horas_trabajadas: float = 0.0       # H.T. (solo horas realmente trabajadas).
+    horas_extra: float = 0.0            # H.E. (respecto al cómputo efectivo).
     horas_nocturnas: float = 0.0        # H.N.
     numero_noches: int = 0
     numero_fines_semana: int = 0
@@ -198,3 +198,9 @@ class ResumenTrabajadorMes:
     dias_trabajados: int = 0
     dias_vacaciones: int = 0
     dias_libres: int = 0
+    # Días de ausencia que computan (vacaciones, permiso retribuido, formación) y
+    # las horas de cómputo que aportan (reducen el C.M. exigible).
+    dias_ausencia_computable: int = 0
+    horas_computo_ausencias: float = 0.0
+    # Cómputo mensual efectivo tras descontar las ausencias computables.
+    computo_efectivo: float = 0.0

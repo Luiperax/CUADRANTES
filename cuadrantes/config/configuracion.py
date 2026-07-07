@@ -92,6 +92,11 @@ class Configuracion:
     # laborables. En fin de semana o festivo ese puesto lo puede hacer cualquiera.
     reservar_f1_manana_a_jefes: bool = True
 
+    # Horas de cómputo que aporta cada día de ausencia computable (vacaciones,
+    # permiso retribuido, formación). Reduce el cómputo mensual del trabajador para
+    # que las horas extra se calculen correctamente, como en los cuadrantes reales.
+    horas_computo_por_dia_ausencia: float = 5.34
+
     descanso: ParametrosDescanso = field(default_factory=ParametrosDescanso)
     fin_de_semana: ParametrosFinDeSemana = field(default_factory=ParametrosFinDeSemana)
     vacaciones: ParametrosVacaciones = field(default_factory=ParametrosVacaciones)
@@ -130,6 +135,9 @@ class Configuracion:
         )
         config.reservar_f1_manana_a_jefes = datos.get(
             "reservar_f1_manana_a_jefes", config.reservar_f1_manana_a_jefes
+        )
+        config.horas_computo_por_dia_ausencia = datos.get(
+            "horas_computo_por_dia_ausencia", config.horas_computo_por_dia_ausencia
         )
         if "descanso" in datos:
             config.descanso = ParametrosDescanso(**datos["descanso"])

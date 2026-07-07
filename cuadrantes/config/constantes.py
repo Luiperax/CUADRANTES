@@ -47,6 +47,14 @@ HORAS_POR_TURNO = 12          # Todo turno (diurno o nocturno) dura 12 horas.
 HORAS_NOCTURNAS_POR_NOCHE = 8  # Franja nocturna computable (22:00 a 06:00).
 COMPUTO_MENSUAL_REFERENCIA = 162.0  # C.M. de referencia en horas.
 
+# Horas de cómputo que aporta cada día de ausencia computable (vacaciones,
+# permiso retribuido, formación). Valor obtenido por ingeniería inversa de los
+# cuadrantes reales de NATURGY: la columna «cómputos personales» reduce el C.M. en
+# exactamente 5,34 h por cada día de vacaciones/permiso (verificado en múltiples
+# trabajadores y meses). Es decir, un día de vacaciones «cuenta» como 5,34 h a
+# efectos de horas, en lugar de como 0. La baja médica NO computa (déficit total).
+HORAS_COMPUTO_POR_DIA_AUSENCIA = 5.34
+
 
 class Turno(str, Enum):
     """Franja horaria de un turno de trabajo."""

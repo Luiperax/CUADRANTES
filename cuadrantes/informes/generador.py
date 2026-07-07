@@ -102,12 +102,21 @@ class GeneradorInformes:
             r = self.resumenes.get(tid)
             if not r:
                 continue
-            filas.append([self._nombre(tid), f"{r.horas_extra:+.1f}"])
+            filas.append([
+                self._nombre(tid),
+                f"{r.horas_trabajadas:.0f}",
+                f"{r.horas_computo_ausencias:.2f}" if r.horas_computo_ausencias else "-",
+                f"{r.computo_efectivo:.2f}",
+                f"{r.horas_extra:+.1f}",
+            ])
         extras = [self.resumenes[tid].horas_extra for tid in self._ids() if tid in self.resumenes]
         rango = (max(extras) - min(extras)) if extras else 0
         return Informe(
-            "Informe de horas extraordinarias", ["Trabajador", "Horas extra (H.E.)"], filas,
-            resumen=f"Diferencia máx-mín de horas extra: {rango:.1f} h",
+            "Informe de horas extraordinarias",
+            ["Trabajador", "H.T.", "Horas vacac./permiso", "Cómputo efectivo", "H.E."], filas,
+            resumen=(f"Diferencia máx-mín de horas extra: {rango:.1f} h. "
+                     f"Cada día de vacaciones/permiso computa como "
+                     f"{self.config.horas_computo_por_dia_ausencia:.2f} h y reduce el cómputo exigible."),
         )
 
     def informe_noches(self) -> Informe:
