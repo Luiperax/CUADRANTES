@@ -395,6 +395,12 @@ class RepositorioCuadrantes:
         ).fetchone()
         return self.cargar(fila["id"]) if fila else None
 
+    def eliminar(self, cuadrante_id: int) -> None:
+        """Elimina un cuadrante del historial (y sus asignaciones en cascada)."""
+        with self.bd.transaccion() as con:
+            con.execute("DELETE FROM cuadrantes WHERE id=?", (cuadrante_id,))
+        self.bd.registrar_cambio("cuadrante", cuadrante_id, "eliminado")
+
     def listar_cabeceras(self) -> list[dict]:
         """Lista ligera de cuadrantes (para la barra lateral)."""
         filas = self.bd.conexion.execute(

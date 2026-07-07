@@ -25,6 +25,7 @@ _TIPOS = [
     TipoAusencia.PERMISO_SIN_SUELDO,
     TipoAusencia.FORMACION,
     TipoAusencia.ASUNTOS_PROPIOS,
+    TipoAusencia.LIBRE,   # Días libres solicitados expresamente por el trabajador.
 ]
 
 

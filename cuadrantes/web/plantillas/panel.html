@@ -22,11 +22,15 @@
 {% if cabeceras %}
   <ul class="lista">
     {% for c in cabeceras %}
-      <li>
-        <a href="/cuadrante/{{ c.id }}" class="fila-lista">
-          <span class="fila-principal">{{ c.mes|mes }} {{ c.anio }} <span class="version">v{{ c.version }}</span></span>
+      <li class="fila-lista">
+        <a href="/cuadrante/{{ c.id }}" class="fila-principal enlace-cuadrante">
+          {{ c.mes|mes }} {{ c.anio }} <span class="version">v{{ c.version }}</span>
           <span class="estado estado-{{ c.estado }}">{{ c.estado.replace('_', ' ')|title }}</span>
         </a>
+        <form action="/cuadrante/{{ c.id }}/borrar" method="post" class="en-linea"
+              onsubmit="return confirm('¿Borrar este cuadrante del historial? No se puede deshacer.');">
+          <button type="submit" class="btn pequeno" title="Borrar">🗑️</button>
+        </form>
       </li>
     {% endfor %}
   </ul>

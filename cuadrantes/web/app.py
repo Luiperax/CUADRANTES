@@ -115,6 +115,12 @@ def crear_app(ruta_bd: str = _RUTA_BD) -> FastAPI:
         cuad = srv.cuadrantes.ultima_version(anio, mes)
         return RedirectResponse(f"/cuadrante/{cuad.id}", status_code=303)
 
+    @app.post("/cuadrante/{cuadrante_id}/borrar")
+    def borrar_cuadrante(cuadrante_id: int,
+                         srv: ServicioCuadrantes = Depends(obtener_servicio)):
+        srv.eliminar_cuadrante(cuadrante_id)
+        return RedirectResponse("/", status_code=303)
+
     # ------------------------------------------------------------------
     @app.get("/cuadrante/{cuadrante_id}", response_class=HTMLResponse)
     def ver_cuadrante(request: Request, cuadrante_id: int,
@@ -226,6 +232,7 @@ def crear_app(ruta_bd: str = _RUTA_BD) -> FastAPI:
             TipoAusencia.VACACIONES, TipoAusencia.BAJA_MEDICA,
             TipoAusencia.PERMISO_RETRIBUIDO, TipoAusencia.PERMISO_SIN_SUELDO,
             TipoAusencia.FORMACION, TipoAusencia.ASUNTOS_PROPIOS,
+            TipoAusencia.LIBRE,
         ]
         return _ctx(request, "ausencias.html",
              ausencias=lista, nombres=nombres,

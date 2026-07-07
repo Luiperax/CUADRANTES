@@ -112,6 +112,10 @@ class ServicioCuadrantes:
         )
         return generador.exportar_pdf(ruta)
 
+    def eliminar_cuadrante(self, cuadrante_id: int) -> None:
+        """Elimina un cuadrante del historial (por ejemplo, si salió mal)."""
+        self.cuadrantes.eliminar(cuadrante_id)
+
     def copia_seguridad(self) -> Path:
         return self.bd.copia_seguridad()
 

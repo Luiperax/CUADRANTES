@@ -129,6 +129,27 @@ class OptimizadorCuadrante:
                     disponible[(restriccion.trabajador_id, dia)] = False
         return disponible
 
+    def _creditos_ausencia(self) -> dict[int, int]:
+        """Horas de cómputo que aporta cada trabajador por sus ausencias computables.
+
+        Cuenta los días del mes con vacaciones, permiso retribuido o formación y los
+        multiplica por el valor por día (5,34 h por defecto). Se usa para equilibrar
+        las horas de forma justa (quien tiene vacaciones parte con esa carga).
+        """
+        valor = self.config.horas_computo_por_dia_ausencia
+        creditos: dict[int, int] = {}
+        for trabajador in self.trabajadores:
+            dias = 0
+            for dia in self.calendario.dias:
+                fecha = self.calendario.fecha(dia)
+                for ausencia in self.ausencias:
+                    if (ausencia.trabajador_id == trabajador.id and ausencia.cubre(fecha)
+                            and ausencia.tipo.cuenta_como_trabajada):
+                        dias += 1
+                        break
+            creditos[trabajador.id] = int(round(dias * valor))
+        return creditos
+
     def _ausencia_del_dia(self, trabajador_id: int, dia: int) -> TipoAusencia | None:
         fecha = self.calendario.fecha(dia)
         for ausencia in self.ausencias:
@@ -355,7 +376,22 @@ class OptimizadorCuadrante:
             self.modelo.Add(rango == maximo - minimo)
             return rango
 
-        terminos.append(pesos.equilibrio_horas * termino_rango(turnos_totales, max_turnos, "horas"))
+        # Equilibrio de HORAS teniendo en cuenta las vacaciones y permisos: cada día
+        # de ausencia computable «vale» horas (5,34 por defecto), de modo que quien
+        # está de vacaciones ya parte con carga y hace proporcionalmente menos
+        # turnos. Así el reparto de horas es realmente equitativo.
+        creditos = self._creditos_ausencia()
+        credito_max = max(creditos.values()) if creditos else 0
+        cota_horas = HORAS_POR_TURNO * max_turnos + credito_max + 1
+        carga_horas: dict[int, cp_model.IntVar] = {}
+        for trabajador in self.trabajadores:
+            carga = self.modelo.NewIntVar(0, cota_horas, f"carga_{trabajador.id}")
+            self.modelo.Add(
+                carga == HORAS_POR_TURNO * turnos_totales[trabajador.id] + creditos[trabajador.id]
+            )
+            carga_horas[trabajador.id] = carga
+
+        terminos.append(pesos.equilibrio_horas * termino_rango(carga_horas, cota_horas, "horas"))
         terminos.append(pesos.equilibrio_noches * termino_rango(
             noches_totales, max_turnos, "noches", ids_subconjunto=ids_noche))
         terminos.append(pesos.equilibrio_fines_semana * termino_rango(

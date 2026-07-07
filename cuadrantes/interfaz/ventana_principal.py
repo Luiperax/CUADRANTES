@@ -99,6 +99,9 @@ class VentanaPrincipal(QtWidgets.QMainWindow):
         self.lista_historico = QtWidgets.QListWidget()
         self.lista_historico.itemClicked.connect(self._seleccionar_historico)
         pl.addWidget(self.lista_historico)
+        boton_borrar = QtWidgets.QPushButton("🗑️ Borrar cuadrante seleccionado")
+        boton_borrar.clicked.connect(self.borrar_cuadrante)
+        pl.addWidget(boton_borrar)
         disposicion.addWidget(panel)
 
         # --- Zona central ---
@@ -268,6 +271,27 @@ class VentanaPrincipal(QtWidgets.QMainWindow):
         if cuadrante:
             self.cuadrante_actual = cuadrante
             self._mostrar_cuadrante(cuadrante)
+
+    def borrar_cuadrante(self) -> None:
+        """Elimina del historial el cuadrante seleccionado (por si salió mal)."""
+        item = self.lista_historico.currentItem()
+        if item is None:
+            QtWidgets.QMessageBox.information(
+                self, "Aviso", "Seleccione un cuadrante del historial para borrarlo.")
+            return
+        cuadrante_id = item.data(256)
+        if QtWidgets.QMessageBox.question(
+            self, "Confirmar borrado",
+            "¿Seguro que desea borrar este cuadrante del historial?\n"
+            "Esta acción no se puede deshacer."
+        ) != QtWidgets.QMessageBox.Yes:
+            return
+        self.servicio.eliminar_cuadrante(cuadrante_id)
+        if self.cuadrante_actual and self.cuadrante_actual.id == cuadrante_id:
+            self.cuadrante_actual = None
+            self.etiqueta_titulo.setText("Seleccione o genere un cuadrante")
+        self.recargar_historico()
+        self.indicador.setText("Cuadrante borrado del historial")
 
     def actualizar(self, silencioso: bool = False) -> None:
         """Recarga los datos desde la base de datos.

@@ -112,7 +112,7 @@ class TipoAusencia(str, Enum):
             TipoAusencia.PERMISO_SIN_SUELDO: "Permiso sin sueldo",
             TipoAusencia.FORMACION: "Formación",
             TipoAusencia.ASUNTOS_PROPIOS: "Asuntos propios",
-            TipoAusencia.LIBRE: "Libre / descanso",
+            TipoAusencia.LIBRE: "Día libre (a petición)",
         }[self]
 
     @property

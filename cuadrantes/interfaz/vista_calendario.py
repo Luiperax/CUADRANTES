@@ -184,6 +184,17 @@ class VistaCalendario(QtWidgets.QWidget):
 
         self.tabla.resizeRowsToContents()
 
+    @staticmethod
+    def _color_texto_para(fondo: str) -> QtGui.QColor:
+        """Devuelve texto oscuro o claro según la luminancia del fondo.
+
+        Regla: si el fondo es claro, la letra va oscura; si es oscuro, clara. Así
+        el texto siempre se ve, independientemente del color de la celda.
+        """
+        color = QtGui.QColor(fondo)
+        luminancia = 0.299 * color.red() + 0.587 * color.green() + 0.114 * color.blue()
+        return QtGui.QColor("#101014") if luminancia > 140 else QtGui.QColor("#f0f0f2")
+
     def _pintar_celda(self, fila, col, texto, asig, finde, es_turno) -> None:
         item = QtWidgets.QTableWidgetItem(texto)
         item.setTextAlignment(QtCore.Qt.AlignCenter)
@@ -200,8 +211,8 @@ class VistaCalendario(QtWidgets.QWidget):
             color = PaletaOscura.FIN_SEMANA
         if color:
             item.setBackground(QtGui.QColor(color))
-            if color in (PaletaOscura.NOCHE, PaletaOscura.EXITO, PaletaOscura.ERROR):
-                item.setForeground(QtGui.QColor("#0d0d0d"))
+            # El texto se adapta automáticamente al color de fondo para que se lea.
+            item.setForeground(self._color_texto_para(color))
         self.tabla.setItem(fila, col, item)
 
     # ------------------------------------------------------------------
