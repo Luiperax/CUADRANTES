@@ -93,6 +93,10 @@ class Configuracion:
     empresa: str = "NATURGY"
     sede: str = "AV. SAN LUIS - 77"
 
+    # Ubicación para el calendario de festivos (varían por comunidad y municipio).
+    comunidad_autonoma: str = "Madrid"
+    municipio: str = "Madrid"
+
     # Reserva del puesto F1 de mañana (MT-F1) a los jefes de equipo en días
     # laborables. En fin de semana o festivo ese puesto lo puede hacer cualquiera.
     reservar_f1_manana_a_jefes: bool = True
@@ -132,6 +136,8 @@ class Configuracion:
         )
         config.empresa = datos.get("empresa", config.empresa)
         config.sede = datos.get("sede", config.sede)
+        config.comunidad_autonoma = datos.get("comunidad_autonoma", config.comunidad_autonoma)
+        config.municipio = datos.get("municipio", config.municipio)
         config.tiempo_maximo_solver_segundos = datos.get(
             "tiempo_maximo_solver_segundos", config.tiempo_maximo_solver_segundos
         )

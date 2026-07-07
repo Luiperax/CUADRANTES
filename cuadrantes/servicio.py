@@ -55,6 +55,31 @@ class ServicioCuadrantes:
         return {t.id: t for t in self.trabajadores.listar()}
 
     # ------------------------------------------------------------------
+    def asegurar_festivos_oficiales(self, anio: int) -> int:
+        """Carga los festivos oficiales del año para la comunidad/municipio configurados.
+
+        Solo actúa si ese año no tiene ningún festivo registrado, de modo que no
+        pisa los festivos que el usuario haya podido personalizar. Por defecto usa
+        el calendario de la Comunidad de Madrid y Madrid capital.
+
+        :return: número de festivos añadidos (0 si ya había festivos ese año).
+        """
+        from .datos.modelos import Festivo
+        from .dominio.festivos_espana import festivos_del_anio
+
+        ya_registrados = [
+            f for f in self.festivos.listar_todos() if f.fecha.year == anio
+        ]
+        if ya_registrados:
+            return 0
+
+        config = self.configuracion()
+        anadidos = 0
+        for fecha, descripcion in festivos_del_anio(anio, config.comunidad_autonoma, config.municipio):
+            self.festivos.guardar(Festivo(id=None, fecha=fecha, descripcion=descripcion))
+            anadidos += 1
+        return anadidos
+
     def generar(self, anio: int, mes: int, guardar: bool = True) -> ResultadoOptimizacion:
         """Genera el cuadrante de un mes teniendo en cuenta el histórico.
 
@@ -63,6 +88,10 @@ class ServicioCuadrantes:
         opcionalmente, persiste el resultado.
         """
         config = self.configuracion()
+        # Asegura los festivos oficiales del año (Madrid por defecto) y del año
+        # anterior, para que el mes y el histórico consideren los festivos correctos.
+        self.asegurar_festivos_oficiales(anio)
+        self.asegurar_festivos_oficiales(anio - 1)
         trabajadores = self.trabajadores.listar(solo_activos=True)
         ausencias = self.ausencias.listar_por_mes(anio, mes)
         restricciones = self.restricciones.listar_por_mes(anio, mes)
