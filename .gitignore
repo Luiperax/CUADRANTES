@@ -15,6 +15,11 @@ venv/
 *.db-wal
 *.db-shm
 
+# Sistema de XAU/USD (paquete «oro»): datos y modelos generados en ejecución.
+/datos_oro/
+*.pkl
+*.jsonl
+
 # Sistema operativo
 .DS_Store
 Thumbs.db
