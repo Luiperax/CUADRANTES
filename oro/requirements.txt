@@ -15,5 +15,7 @@ scikit-learn>=1.3      # Gradient Boosting (HistGradientBoostingClassifier).
 fastapi>=0.110         # API de señales, backtest y salud.
 uvicorn[standard]>=0.27  # Servidor ASGI para la API/panel.
 
-# --- Opcional: notificaciones (Telegram, webhook/push, WhatsApp API) ---
-requests>=2.31         # Envío de alertas por HTTP (email usa la stdlib).
+# --- Datos reales y sentimiento (modo «vivo») + notificaciones HTTP ---
+# Necesario para: precio real (Yahoo), prensa/sentimiento y calendario macro,
+# y para enviar alertas por Telegram/webhook. El RSS se parsea con la stdlib.
+requests>=2.31

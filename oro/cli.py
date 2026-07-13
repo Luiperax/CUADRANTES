@@ -14,7 +14,7 @@ import argparse
 import sys
 
 from .config import cargar_configuracion
-from .datos import ProveedorCSV, ProveedorSintetico
+from .datos import ProveedorCSV, ProveedorSintetico, ProveedorYahoo
 from .servicio import ServicioOro
 
 _AVISO = ("Aviso: herramienta de análisis, no asesoramiento financiero. "
@@ -24,7 +24,41 @@ _AVISO = ("Aviso: herramienta de análisis, no asesoramiento financiero. "
 def _proveedor(args):
     if getattr(args, "csv", None):
         return ProveedorCSV(args.csv)
+    if getattr(args, "sintetico", False):
+        return ProveedorSintetico(velas=max(args.velas, 8000), semilla=args.semilla)
     return ProveedorSintetico(velas=max(args.velas, 8000), semilla=args.semilla)
+
+
+def _proveedor_vivo(args):
+    """Proveedor para el modo en vivo: real (Yahoo) salvo que se pida sintético."""
+    if getattr(args, "csv", None):
+        return ProveedorCSV(args.csv)
+    if getattr(args, "sintetico", False):
+        return ProveedorSintetico(velas=8000, semilla=args.semilla)
+    cfg = cargar_configuracion()
+    return ProveedorYahoo(timeframe=cfg.timeframe)
+
+
+def _construir_notificador():
+    """Compone los canales de notificación disponibles según el entorno."""
+    import os
+
+    from .notificaciones import (
+        NotificadorConsola,
+        NotificadorEmail,
+        NotificadorMultiple,
+        NotificadorTelegram,
+        NotificadorWebhook,
+    )
+
+    canales = [NotificadorConsola()]
+    if os.getenv("ORO_TELEGRAM_TOKEN") and os.getenv("ORO_TELEGRAM_CHAT_ID"):
+        canales.append(NotificadorTelegram())
+    if os.getenv("ORO_WEBHOOK_URL"):
+        canales.append(NotificadorWebhook())
+    if os.getenv("ORO_SMTP_HOST"):
+        canales.append(NotificadorEmail())
+    return NotificadorMultiple(canales)
 
 
 def _cmd_senal(args) -> int:
@@ -86,6 +120,40 @@ def _cmd_demo(args) -> int:
     return 0
 
 
+def _cmd_vivo(args) -> int:
+    from .vivo import RunnerVivo
+
+    proveedor = _proveedor_vivo(args)
+    notificador = _construir_notificador()
+    runner = RunnerVivo(
+        cargar_configuracion(), proveedor=proveedor, notificador=notificador,
+        max_concurrentes=args.max_concurrentes,
+        usar_sentimiento=not args.sin_sentimiento,
+    )
+    print(_AVISO, "\n")
+    print(f"Notificando por: {len(notificador._canales)} canal(es). "
+          f"Configura ORO_TELEGRAM_TOKEN/CHAT_ID, ORO_WEBHOOK_URL o ORO_SMTP_* para el móvil.\n")
+    runner.ejecutar(intervalo_seg=args.intervalo, max_ciclos=args.max_ciclos)
+    return 0
+
+
+def _cmd_sentimiento(args) -> int:
+    from .sentimiento import AnalizadorSentimiento
+
+    print("Analizando prensa financiera y calendario económico…\n")
+    ctx = AnalizadorSentimiento(min_titulares_senal=1).analizar()
+    print(ctx.resumen())
+    if ctx.titulares_destacados:
+        print("\nTitulares destacados:")
+        for t in ctx.titulares_destacados:
+            print(f"  • {t}")
+    if ctx.riesgo_noticia_alta:
+        print(f"\n⚠ NO OPERAR: evento de alto impacto en ~{ctx.minutos_al_evento} min "
+              f"({ctx.proximo_evento}).")
+    print("\n" + _AVISO)
+    return 0
+
+
 def _cmd_servir(args) -> int:
     try:
         import uvicorn
@@ -105,6 +173,8 @@ def main(argv=None) -> int:
     parser.add_argument("--velas", type=int, default=6000, help="Nº de velas a usar.")
     parser.add_argument("--semilla", type=int, default=42, help="Semilla del proveedor sintético.")
     parser.add_argument("--csv", type=str, default=None, help="Ruta a un CSV OHLCV real.")
+    parser.add_argument("--sintetico", action="store_true",
+                        help="Forzar datos sintéticos (offline) en vez de datos reales.")
     sub = parser.add_subparsers(dest="comando", required=True)
 
     sub.add_parser("senal", help="Analiza el mercado actual.")
@@ -112,6 +182,15 @@ def main(argv=None) -> int:
     p_ent = sub.add_parser("entrenar", help="Entrena el modelo con validación.")
     p_ent.add_argument("--forzar", action="store_true", help="Guardar aunque no supere la validación.")
     sub.add_parser("demo", help="Demostración de extremo a extremo.")
+    sub.add_parser("sentimiento", help="Muestra el sentimiento de prensa y el riesgo de noticias.")
+    p_vivo = sub.add_parser("vivo", help="Bucle en vivo: entradas, salidas y notificaciones.")
+    p_vivo.add_argument("--intervalo", type=int, default=900, help="Segundos entre ciclos (900 = 15 min).")
+    p_vivo.add_argument("--max-ciclos", type=int, default=None, dest="max_ciclos",
+                        help="Nº máximo de ciclos (por defecto, indefinido).")
+    p_vivo.add_argument("--max-concurrentes", type=int, default=2, dest="max_concurrentes",
+                        help="Máximo de operaciones abiertas a la vez.")
+    p_vivo.add_argument("--sin-sentimiento", action="store_true", dest="sin_sentimiento",
+                        help="No consultar prensa/calendario (solo técnico).")
     p_srv = sub.add_parser("servir", help="Arranca la API/panel.")
     p_srv.add_argument("--host", default="127.0.0.1")
     p_srv.add_argument("--port", type=int, default=8010)
@@ -119,7 +198,8 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     despacho = {
         "senal": _cmd_senal, "backtest": _cmd_backtest, "entrenar": _cmd_entrenar,
-        "demo": _cmd_demo, "servir": _cmd_servir,
+        "demo": _cmd_demo, "sentimiento": _cmd_sentimiento, "vivo": _cmd_vivo,
+        "servir": _cmd_servir,
     }
     return despacho[args.comando](args)
 

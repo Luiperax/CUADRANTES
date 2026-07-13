@@ -105,23 +105,32 @@ capital compuesta a partir del PnL real por operación.
 - API FastAPI + panel de control + CLI.
 - Proveedor sintético (offline, reproducible) y proveedor CSV.
 
-### Pendiente para producción real (integraciones externas)
-Estas piezas requieren cuentas, claves y/o datos de pago y se dejan como
-adaptadores a implementar sobre las interfaces ya existentes:
+### Datos reales y ejecución en vivo (ya integrados)
+- **Precio real del oro**: `oro.datos.ProveedorYahoo` (Yahoo Finance, futuro
+  `GC=F` como proxy del spot XAU/USD), sobre la interfaz `ProveedorDatos`.
+- **Sentimiento de prensa**: `oro.sentimiento` con Yahoo Finance RSS + Google
+  News, léxico orientado al oro, ponderación por relevancia y frescura, y umbral
+  mínimo de titulares para filtrar ruido → `MarketSnapshot.sentimiento`.
+- **Calendario económico**: ForexFactory; detecta eventos de alto impacto
+  (FED/IPC/PCE/NFP) inminentes y activa `riesgo_noticia_alta` para no operar.
+- **Motor en vivo**: `oro.vivo.RunnerVivo` compone datos + sentimiento + señales
+  + gestión; `oro.vivo.GestorOperaciones` decide y notifica las **salidas**
+  (TP parciales, break-even tras TP1, stop, cierre). Tope de 2–4 señales/día.
 
-- **Datos reales de mercado**: adaptador a MetaTrader 5 / Interactive Brokers /
-  proveedor de datos tick o M1 con 10+ años de histórico.
-- **Macro y noticias**: ingestión de calendario económico (Forex Factory/CME),
-  tipos e inflación (FRED/BCE/FED), DXY y rendimientos del Treasury, con pesos
-  por evento en `MarketSnapshot`.
-- **Sentimiento (RRSS/prensa)**: pipeline NLP para X/Reddit/prensa financiera con
-  filtrado de ruido y manipulación; alimenta `MarketSnapshot.sentimiento`.
+### Pendiente para producción real (integraciones externas)
+Estas piezas requieren cuentas, claves y/o datos de pago:
+
+- **Feed del bróker**: MetaTrader 5 / Interactive Brokers con spread real y 10+
+  años de histórico para el backtest largo (Yahoo da meses, no décadas).
+- **X (Twitter) / Reddit**: conectores directos (API de pago) para ampliar el
+  sentimiento más allá de la prensa agregada; misma interfaz de `fuentes`.
+- **Macro cuantitativo**: FRED/BCE/FED (tipos, inflación), DXY y Treasury como
+  features numéricas ponderadas, además del calendario ya integrado.
 - **Reentrenamiento programado**: job periódico que reetiqueta, revalida
   walk-forward y solo promociona el modelo si supera los umbrales.
-- **Ejecución**: capa de órdenes (con doble confirmación y modo demo por
-  defecto), solo tras validación en demo prolongada.
-- **Persistencia analítica**: PostgreSQL para operaciones/contexto y Redis para
-  estado en vivo; hoy se persiste en JSONL como base mínima.
+- **Ejecución de órdenes**: capa con doble confirmación y modo demo por defecto,
+  solo tras validación en demo prolongada.
+- **Persistencia analítica**: PostgreSQL + Redis; hoy se persiste en JSONL.
 
 ## 7. Cómo extender
 

@@ -43,22 +43,56 @@ pip install -r oro/requirements.txt   # numpy y pandas bastan para el núcleo.
 ## Uso rápido
 
 ```bash
-# Demostración de extremo a extremo con datos SINTÉTICOS (sin conexión):
-python -m oro.cli demo
+# ⭐ MODO EN VIVO: vigila el mercado real, avisa cuándo ENTRAR y cuándo SALIR
+# (2–4 señales/día), con precio real (Yahoo) y sentimiento de prensa:
+python -m oro.cli vivo                      # notifica por consola.
+python -m oro.cli vivo --intervalo 900      # revisa cada 15 min.
+
+# Ver el sentimiento de prensa y el riesgo de noticias macro AHORA:
+python -m oro.cli sentimiento
 
 # Analizar el estado de mercado actual y mostrar la señal (o «no hay»):
-python -m oro.cli senal
+python -m oro.cli senal --sintetico         # offline (datos de prueba).
 
 # Backtest (usa --csv ruta.csv para datos reales OHLCV):
-python -m oro.cli backtest --velas 8000
+python -m oro.cli backtest --sintetico --velas 8000
 python -m oro.cli backtest --csv datos/xauusd_m15.csv
 
 # Entrenar el modelo con validación walk-forward (solo se guarda si es válido):
-python -m oro.cli entrenar
+python -m oro.cli entrenar --sintetico
+
+# Demostración de extremo a extremo con datos SINTÉTICOS (sin conexión):
+python -m oro.cli demo
 
 # API + panel de control (http://127.0.0.1:8010/oro/panel):
 python -m oro.cli servir
 ```
+
+### Notificaciones al móvil
+
+El modo `vivo` envía cada evento (entrada, mover stop, objetivo, cierre) por los
+canales que tengas configurados. Para recibirlos en el móvil, define las
+variables de entorno antes de arrancar (nunca van en el código):
+
+```bash
+export ORO_TELEGRAM_TOKEN="123456:AA..."   # bot de Telegram (@BotFather)
+export ORO_TELEGRAM_CHAT_ID="987654321"    # tu chat_id
+# opcionales:
+export ORO_WEBHOOK_URL="https://..."       # push (FCM), WhatsApp Business API, Slack…
+export ORO_SMTP_HOST="smtp.gmail.com"; export ORO_SMTP_USUARIO="tu@correo"; export ORO_SMTP_CLAVE="..."; export ORO_SMTP_DESTINO="tu@correo"
+python -m oro.cli vivo
+```
+
+### Qué fuentes analiza de verdad
+
+- **Precio real del oro**: Yahoo Finance (futuro `GC=F`, proxy del XAU/USD spot).
+- **Prensa financiera**: Yahoo Finance RSS + Google News (agrega a Reuters,
+  Bloomberg, FXStreet, Investing, etc.) → sentimiento orientado al oro.
+- **Calendario económico**: ForexFactory → detecta FED/IPC/PCE/NFP inminentes y
+  **bloquea entradas** en la ventana del evento (riesgo de spike).
+- **Limitación honesta**: X (Twitter) y Reddit requieren API de pago o están
+  bloqueados en muchos entornos; su cobertura directa queda como conector a
+  añadir. La prensa agregada ya recoge buena parte de esa información.
 
 ### Uso como librería
 
@@ -87,6 +121,8 @@ else:
 | `oro.senales` | Motor de confluencia y filtro de calidad A+. |
 | `oro.ml` | Modelo de probabilidad + etiquetado triple barrera + walk-forward. |
 | `oro.backtesting` | Motor event-driven y métricas (PF, DD, Sharpe, expectancy…). |
+| `oro.sentimiento` | Prensa (Yahoo/Google News) + calendario macro → sentimiento y riesgo de noticia. |
+| `oro.vivo` | Motor en vivo: gestor de salidas y runner (entradas + salidas + avisos). |
 | `oro.notificaciones` | Consola, Telegram, email (SMTP) y webhook/push. |
 | `oro.api` | API FastAPI y panel de control. |
 | `oro.servicio` | Orquestación (usada por CLI y API). |

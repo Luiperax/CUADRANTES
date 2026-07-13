@@ -16,5 +16,6 @@ from __future__ import annotations
 from .base import ProveedorDatos
 from .sintetico import ProveedorSintetico
 from .csv import ProveedorCSV
+from .adaptadores import ProveedorYahoo
 
-__all__ = ["ProveedorDatos", "ProveedorSintetico", "ProveedorCSV"]
+__all__ = ["ProveedorDatos", "ProveedorSintetico", "ProveedorCSV", "ProveedorYahoo"]
