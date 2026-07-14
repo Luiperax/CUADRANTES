@@ -25,7 +25,67 @@ from .datos import ProveedorYahoo
 from .vivo import RunnerVivo
 
 
-def main() -> int:
+def _probar_email() -> tuple[bool, str]:
+    """Intenta un envío de correo real mostrando el error concreto si falla."""
+    import smtplib
+    from email.mime.text import MIMEText
+
+    host = os.getenv("ORO_SMTP_HOST", "")
+    puerto = int(os.getenv("ORO_SMTP_PUERTO", "587"))
+    usuario = os.getenv("ORO_SMTP_USUARIO", "")
+    clave = os.getenv("ORO_SMTP_CLAVE", "")
+    destino = os.getenv("ORO_SMTP_DESTINO", "")
+    if not (host and usuario and destino):
+        return False, "faltan ORO_SMTP_HOST / ORO_SMTP_USUARIO / ORO_SMTP_DESTINO"
+    msg = MIMEText("Notificación de PRUEBA del sistema XAU/USD. Si lees esto, el correo funciona. "
+                   "Recuerda: herramienta de análisis, no asesoramiento financiero.")
+    msg["Subject"] = "✅ Prueba de alertas XAU/USD"
+    msg["From"] = usuario
+    msg["To"] = destino
+    try:
+        with smtplib.SMTP(host, puerto, timeout=15) as s:
+            s.starttls()
+            if clave:
+                s.login(usuario, clave)
+            s.send_message(msg)
+        return True, ""
+    except Exception as e:  # noqa: BLE001 — queremos ver el motivo exacto.
+        return False, f"{type(e).__name__}: {e}"
+
+
+def _probar() -> int:
+    """Envía una notificación de prueba por cada canal configurado."""
+    print("Probando canales de notificación configurados…")
+    alguno = False
+    fallo = False
+    if os.getenv("ORO_SMTP_HOST"):
+        alguno = True
+        ok, err = _probar_email()
+        fallo = fallo or not ok
+        print(f"  Email    → {'OK, revisa tu bandeja (y la carpeta de spam).' if ok else 'FALLO: ' + err}")
+    if os.getenv("ORO_TELEGRAM_TOKEN") and os.getenv("ORO_TELEGRAM_CHAT_ID"):
+        alguno = True
+        from .notificaciones import NotificadorTelegram
+        ok = NotificadorTelegram().enviar("✅ Prueba XAU/USD", "Notificación de prueba. ¡Funciona!")
+        fallo = fallo or not ok
+        print(f"  Telegram → {'OK' if ok else 'FALLO (revisa token y chat_id).'}")
+    if os.getenv("ORO_WEBHOOK_URL"):
+        alguno = True
+        from .notificaciones import NotificadorWebhook
+        ok = NotificadorWebhook().enviar("✅ Prueba XAU/USD", "Notificación de prueba.")
+        fallo = fallo or not ok
+        print(f"  Webhook  → {'OK' if ok else 'FALLO (revisa la URL).'}")
+    if not alguno:
+        print("  No hay ningún canal configurado. Define ORO_SMTP_* (email) o ORO_TELEGRAM_* (Telegram).")
+        return 1
+    return 1 if fallo else 0
+
+
+def main(argv=None) -> int:
+    argv = sys.argv[1:] if argv is None else argv
+    if "--probar" in argv:
+        return _probar()
+
     cfg = cargar_configuracion()
     runner = RunnerVivo(
         cfg,

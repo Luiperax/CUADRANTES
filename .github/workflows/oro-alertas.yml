@@ -26,7 +26,12 @@ name: Alertas XAU/USD
 on:
   schedule:
     - cron: "*/15 * * * *"   # cada 15 minutos (aprox.).
-  workflow_dispatch: {}        # permite lanzarlo a mano desde la pestaña Actions.
+  workflow_dispatch:            # permite lanzarlo a mano desde la pestaña Actions.
+    inputs:
+      modo_prueba:
+        description: "Enviar una notificación de PRUEBA (para comprobar el email/Telegram)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write              # para guardar el estado (oro_estado.json) en el repo.
@@ -61,7 +66,12 @@ jobs:
           ORO_SMTP_DESTINO: ${{ secrets.ORO_SMTP_DESTINO }}
           # Webhook genérico (push/WhatsApp API/Slack…), opcional.
           ORO_WEBHOOK_URL: ${{ secrets.ORO_WEBHOOK_URL }}
-        run: python -m oro.alerta
+        run: |
+          if [ "${{ inputs.modo_prueba }}" = "true" ]; then
+            python -m oro.alerta --probar
+          else
+            python -m oro.alerta
+          fi
 
       - name: Guardar el estado si cambió
         run: |
