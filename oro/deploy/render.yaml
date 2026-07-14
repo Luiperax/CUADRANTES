@@ -21,8 +21,9 @@ services:
     name: oro-xauusd
     runtime: python
     plan: free
-    buildCommand: pip install -r oro/requirements.txt
+    buildCommand: pip install -r oro/requirements-web.txt
     startCommand: uvicorn oro.web:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /oro/salud
     envVars:
       - key: ORO_INTERVALO
         value: "900"                 # segundos entre revisiones (900 = 15 min).

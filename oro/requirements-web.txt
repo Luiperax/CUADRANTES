@@ -1,0 +1,13 @@
+# Dependencias MÍNIMAS para desplegar el panel EN VIVO en la nube.
+# Instalación:  pip install -r oro/requirements-web.txt
+#
+# Deliberadamente NO incluye scikit-learn: el panel en vivo funciona sin el
+# modelo ML (usa la probabilidad por confluencia). Así el build en el plan
+# gratuito es rápido y fiable. Si quieres el modelo entrenado en la nube, añade
+# «scikit-learn>=1.3» a esta lista.
+
+numpy>=1.24              # Cálculo de indicadores, features y métricas.
+pandas>=2.0              # Series temporales OHLCV.
+fastapi>=0.110           # API y panel web.
+uvicorn[standard]>=0.27  # Servidor ASGI (comando de arranque).
+requests>=2.31           # Precio real (Yahoo), noticias/sentimiento y Telegram.

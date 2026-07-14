@@ -45,27 +45,48 @@ para 24/7 usa la nube, Opción B.)
 Un panel que abres desde el navegador del móvil y muestra, en vivo: precio,
 sentimiento de noticias, operaciones abiertas y últimos eventos. Se refresca solo.
 
-### Desplegar en Render (gratis, todo desde el navegador)
-1. Sube el repo a GitHub (ya lo tienes) y entra en **render.com** con tu GitHub.
-2. **New → Web Service** → elige este repositorio y configura:
-   - **Build command:** `pip install -r oro/requirements.txt`
+### Desplegar en Render (gratis, todo desde el navegador) — RECOMENDADO
+Esta ruta **no toca** el despliegue de la app de cuadrantes.
+
+1. Sube el repo a GitHub (ya lo tienes) y entra en **render.com** con tu cuenta
+   de GitHub (gratis, sin tarjeta).
+2. **New → Web Service** → elige el repositorio `Luiperax/CUADRANTES` y en la
+   rama pon `claude/xau-usd-trading-system-d7xtc0` (o `main` si ya lo fusionaste).
+3. Configura estos dos campos (cópialos tal cual):
+   - **Build command:** `pip install -r oro/requirements-web.txt`
    - **Start command:** `uvicorn oro.web:app --host 0.0.0.0 --port $PORT`
-3. En **Environment**, añade (todas opcionales salvo la clave del panel):
-   - `ORO_PANEL_CLAVE` → una contraseña para proteger tu panel público.
-   - `ORO_TELEGRAM_TOKEN`, `ORO_TELEGRAM_CHAT_ID` → para además recibir avisos.
-   - `ORO_INTERVALO` → segundos entre revisiones (por defecto 900 = 15 min).
-4. **Create Web Service.** Al terminar tendrás una URL fija tipo
-   `https://oro-xauusd.onrender.com` → ábrela en el móvil y añádela a la pantalla
-   de inicio. Introduce la clave del panel la primera vez.
+4. En **Environment → Add Environment Variable**, añade:
+   - `ORO_PANEL_CLAVE` → una contraseña tuya (para que solo entres tú al panel).
+   - `ORO_TELEGRAM_TOKEN` y `ORO_TELEGRAM_CHAT_ID` → si además quieres los avisos
+     al móvil (ver Opción A para conseguirlos). Opcionales.
+   - `ORO_INTERVALO` → `900` (segundos entre revisiones; 900 = 15 min). Opcional.
+5. **Create Web Service.** Cuando termine (unos minutos) tendrás una URL fija tipo
+   `https://oro-xauusd.onrender.com`. Ábrela en el móvil, introduce tu clave y
+   **añádela a la pantalla de inicio** para tenerla como una app.
 
-> Alternativa con blueprint (un clic): usa el fichero
-> [`oro/deploy/render.yaml`](deploy/render.yaml) copiándolo a la raíz del repo.
-> Ten en cuenta que sustituiría al blueprint de la app de cuadrantes.
+> Comprueba que vive: abre `…/oro/salud` (debe decir `"estado":"ok"` y
+> `"scheduler_activo":true`).
 
-### Nota sobre el plan gratuito
-El servicio gratuito se «duerme» tras un rato sin visitas y el motor se pausa; se
-reanuda solo al abrir el panel (tarda unos segundos). Para vigilancia **24/7 sin
-pausas**, usa un plan de pago de Render (o cualquier VPS) y déjalo siempre activo.
+### Alternativa: blueprint de un clic
+Copia [`oro/deploy/render.yaml`](deploy/render.yaml) a la raíz del repo como
+`render.yaml` y en Render usa **New → Blueprint → Apply**. Ojo: ese fichero
+sustituiría al blueprint de la app de cuadrantes (por eso la ruta recomendada es
+la de arriba, que no lo toca).
+
+### Importante sobre el plan gratuito (léelo)
+El plan **gratuito de Render se «duerme»** tras ~15 min sin visitas y, al
+dormirse, **el motor se pausa** (deja de vigilar el mercado hasta que alguien
+vuelve a abrir el panel). Para un vigilante que necesita mirar el mercado de
+forma continua, esto es una limitación real. Opciones:
+
+- **24/7 de verdad:** el plan más barato de Render (~7 USD/mes) o cualquier VPS
+  económico, que no se duerme.
+- **Truco en gratuito:** un servicio externo (p. ej. cron-job.org) que haga una
+  petición a `…/oro/salud` cada 10 min para mantenerlo despierto. Es un apaño y
+  puede ir contra las condiciones del plan gratuito; para uso serio, mejor el
+  plan de pago.
+- **Solo avisos, sin panel 24/7:** deja el motor en tu PC con `python -m oro.cli
+  vivo` y recibe los avisos por Telegram (Opción A), sin depender de la nube.
 
 ---
 
