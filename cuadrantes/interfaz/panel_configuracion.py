@@ -98,10 +98,12 @@ class PanelConfiguracion(QtWidgets.QDialog):
         self.w_fs_min = self._spin(fs.fines_semana_objetivo_min, 0, 5)
         self.w_fs_max = self._spin(fs.fines_semana_objetivo_max, 0, 5)
         self.w_fs_tope = self._spin(fs.fines_semana_tope_duro, 1, 5)
+        self.w_noche_vie = self._check(fs.noche_viernes_requiere_finde_completo)
         f.addRow("Sábado y domingo mismo trabajador:", self.w_sd_mismo)
         f.addRow("Fines de semana objetivo (mín.):", self.w_fs_min)
         f.addRow("Fines de semana objetivo (máx.):", self.w_fs_max)
         f.addRow("Tope de fines de semana:", self.w_fs_tope)
+        f.addRow("Noche de viernes solo con finde completo:", self.w_noche_vie)
         return w
 
     def _pestana_vacaciones(self) -> QtWidgets.QWidget:
@@ -114,12 +116,14 @@ class PanelConfiguracion(QtWidgets.QDialog):
         self.w_desp_max = self._spin(v.dias_libres_despues_max, 0, 10)
         self.w_ev_antes = self._check(v.evitar_noche_antes)
         self.w_ev_reinc = self._check(v.evitar_noche_al_reincorporarse)
+        self.w_descanso_alred = self._check(v.procurar_descanso_alrededor)
         f.addRow("Días libres antes (mín.):", self.w_antes_min)
         f.addRow("Días libres antes (máx.):", self.w_antes_max)
         f.addRow("Días libres después (mín.):", self.w_desp_min)
         f.addRow("Días libres después (máx.):", self.w_desp_max)
         f.addRow("Evitar noche antes de vacaciones:", self.w_ev_antes)
         f.addRow("Evitar noche al reincorporarse:", self.w_ev_reinc)
+        f.addRow("Procurar días libres junto a vacaciones:", self.w_descanso_alred)
         return w
 
     def _pestana_pesos(self) -> QtWidgets.QWidget:
@@ -168,6 +172,7 @@ class PanelConfiguracion(QtWidgets.QDialog):
         c.fin_de_semana.fines_semana_objetivo_min = self.w_fs_min.value()
         c.fin_de_semana.fines_semana_objetivo_max = self.w_fs_max.value()
         c.fin_de_semana.fines_semana_tope_duro = self.w_fs_tope.value()
+        c.fin_de_semana.noche_viernes_requiere_finde_completo = self.w_noche_vie.isChecked()
 
         c.vacaciones.dias_libres_antes_min = self.w_antes_min.value()
         c.vacaciones.dias_libres_antes_max = self.w_antes_max.value()
@@ -175,6 +180,7 @@ class PanelConfiguracion(QtWidgets.QDialog):
         c.vacaciones.dias_libres_despues_max = self.w_desp_max.value()
         c.vacaciones.evitar_noche_antes = self.w_ev_antes.isChecked()
         c.vacaciones.evitar_noche_al_reincorporarse = self.w_ev_reinc.isChecked()
+        c.vacaciones.procurar_descanso_alrededor = self.w_descanso_alred.isChecked()
 
         for clave, spin in self.w_pesos.items():
             setattr(c.pesos, clave, spin.value())

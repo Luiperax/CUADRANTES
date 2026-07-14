@@ -273,6 +273,31 @@ class OptimizadorCuadrante:
                 # El trabajador hace el sábado si y solo si hace el domingo.
                 self.modelo.Add(b_sab == b_dom)
 
+    def _restriccion_noche_viernes(self) -> None:
+        """Una noche en viernes obliga a hacer el fin de semana completo de noche.
+
+        No se permite un turno de noche el viernes salvo que ese mismo trabajador
+        realice también la noche del sábado y la del domingo de ese fin de semana.
+        Así no quedan noches sueltas de viernes desligadas del fin de semana.
+        """
+        if not self.config.fin_de_semana.noche_viernes_requiere_finde_completo:
+            return
+        for sabado, domingo in self.calendario.fines_de_semana():
+            viernes = sabado - 1
+            if viernes < 1:
+                continue  # El viernes cae en el mes anterior; no se puede ligar.
+            for trabajador in self.trabajadores:
+                noche_vie = self._variable_trabaja(trabajador.id, viernes, solo_noche=True)
+                if not noche_vie:
+                    continue
+                noche_sab = self._variable_trabaja(trabajador.id, sabado, solo_noche=True)
+                noche_dom = self._variable_trabaja(trabajador.id, domingo, solo_noche=True)
+                # noche_viernes -> noche_sábado  y  noche_viernes -> noche_domingo.
+                # Si no hay variable de noche el sábado o el domingo (p. ej. no
+                # disponible), la suma vale 0 y el viernes de noche queda prohibido.
+                self.modelo.Add(sum(noche_vie) <= (sum(noche_sab) if noche_sab else 0))
+                self.modelo.Add(sum(noche_vie) <= (sum(noche_dom) if noche_dom else 0))
+
     def _restriccion_consecutivos(self) -> None:
         """Limita días y noches consecutivos mediante ventanas deslizantes."""
         max_dias = self.config.descanso.max_dias_consecutivos
@@ -512,6 +537,46 @@ class OptimizadorCuadrante:
                 self.modelo.Add(desbalance >= conteo[superior.id] - conteo[inferior.id] - 1)
                 terminos.append(PENALIZACION_REPARTO_F1 * (exceso_inferior + desbalance))
 
+        # (8) Procurar días libres agrupados con las vacaciones: para cada periodo
+        # de vacaciones se intenta dejar libres los días inmediatamente anteriores
+        # O los inmediatamente posteriores (basta con uno de los dos lados). Se
+        # penaliza el «lado menos libre» (el mínimo de días trabajados a cada lado),
+        # de modo que el motor tiende a dejar completamente libre al menos un lado.
+        if self.config.vacaciones.procurar_descanso_alrededor and pesos.adaptacion_vacaciones > 0:
+            v_antes = max(1, self.config.vacaciones.dias_libres_antes_min)
+            v_despues = max(1, self.config.vacaciones.dias_libres_despues_min)
+            for idx, ausencia in enumerate(self.ausencias):
+                if ausencia.tipo is not TipoAusencia.VACACIONES:
+                    continue
+                if ausencia.trabajador_id not in self._mapa_trabajadores:
+                    continue
+                tid = ausencia.trabajador_id
+                antes_vars: list = []
+                if ausencia.fecha_inicio.month == self.mes:
+                    inicio = ausencia.fecha_inicio.day
+                    for k in range(1, v_antes + 1):
+                        d = inicio - k
+                        if 1 <= d <= self.calendario.numero_dias:
+                            antes_vars += self._variable_trabaja(tid, d)
+                despues_vars: list = []
+                if ausencia.fecha_fin.month == self.mes:
+                    fin = ausencia.fecha_fin.day
+                    for k in range(1, v_despues + 1):
+                        d = fin + k
+                        if 1 <= d <= self.calendario.numero_dias:
+                            despues_vars += self._variable_trabaja(tid, d)
+                # Si algún lado no tiene días laborables en el mes (borde de mes u
+                # otra ausencia contigua), se considera ya «libre» por ese lado.
+                if not antes_vars or not despues_vars:
+                    continue
+                na = self.modelo.NewIntVar(0, v_antes, f"vac_antes_{tid}_{idx}")
+                self.modelo.Add(na == sum(antes_vars))
+                nd = self.modelo.NewIntVar(0, v_despues, f"vac_despues_{tid}_{idx}")
+                self.modelo.Add(nd == sum(despues_vars))
+                lado_peor = self.modelo.NewIntVar(0, max(v_antes, v_despues), f"vac_peor_{tid}_{idx}")
+                self.modelo.AddMinEquality(lado_peor, [na, nd])
+                terminos.append(pesos.adaptacion_vacaciones * lado_peor)
+
         self.modelo.Minimize(sum(terminos))
 
     def _restriccion_descansos_agrupados(self) -> None:
@@ -558,6 +623,7 @@ class OptimizadorCuadrante:
         self._restriccion_un_turno_por_dia()
         self._restriccion_noche_manana()
         self._restriccion_fines_semana()
+        self._restriccion_noche_viernes()
         self._restriccion_consecutivos()
         self._restriccion_vacaciones()
         self._restriccion_descansos_agrupados()

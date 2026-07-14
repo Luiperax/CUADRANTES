@@ -99,8 +99,13 @@ class VentanaPrincipal(QtWidgets.QMainWindow):
         pl.addWidget(self._etiqueta("Histórico de cuadrantes", "subtitulo"))
         self.lista_historico = QtWidgets.QListWidget()
         self.lista_historico.itemClicked.connect(self._seleccionar_historico)
+        # Menú contextual (clic derecho) para borrar, además del botón de abajo.
+        self.lista_historico.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.lista_historico.customContextMenuRequested.connect(self._menu_historico)
         pl.addWidget(self.lista_historico)
         boton_borrar = QtWidgets.QPushButton("🗑️ Borrar cuadrante seleccionado")
+        boton_borrar.setObjectName("peligro")
+        boton_borrar.setToolTip("Elimina del historial el cuadrante seleccionado en la lista de arriba.")
         boton_borrar.clicked.connect(self.borrar_cuadrante)
         pl.addWidget(boton_borrar)
         disposicion.addWidget(panel)
@@ -272,6 +277,18 @@ class VentanaPrincipal(QtWidgets.QMainWindow):
         if cuadrante:
             self.cuadrante_actual = cuadrante
             self._mostrar_cuadrante(cuadrante)
+
+    def _menu_historico(self, punto) -> None:
+        """Menú contextual del histórico: permite borrar con clic derecho."""
+        item = self.lista_historico.itemAt(punto)
+        if item is None:
+            return
+        self.lista_historico.setCurrentItem(item)
+        menu = QtWidgets.QMenu(self)
+        accion_borrar = menu.addAction("🗑️ Borrar cuadrante del historial")
+        elegido = menu.exec(self.lista_historico.mapToGlobal(punto))
+        if elegido == accion_borrar:
+            self.borrar_cuadrante()
 
     def borrar_cuadrante(self) -> None:
         """Elimina del historial el cuadrante seleccionado (por si salió mal)."""

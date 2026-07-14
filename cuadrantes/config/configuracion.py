@@ -39,6 +39,10 @@ class ParametrosFinDeSemana:
     fines_semana_objetivo_min: int = 1            # Mínimo preferente por trabajador.
     fines_semana_objetivo_max: int = 2            # Máximo preferente por trabajador.
     fines_semana_tope_duro: int = 3               # Nunca superar salvo necesidad.
+    # Un turno de noche en viernes solo se permite si ese trabajador va a hacer el
+    # fin de semana completo de noche (sábado y domingo noche). Evita noches sueltas
+    # de viernes desligadas del fin de semana.
+    noche_viernes_requiere_finde_completo: bool = True
 
 
 @dataclass
@@ -51,6 +55,11 @@ class ParametrosVacaciones:
     dias_libres_despues_max: int = 4
     evitar_noche_antes: bool = True
     evitar_noche_al_reincorporarse: bool = True
+    # Procurar (objetivo blando) que haya varios días libres justo antes O justo
+    # después del periodo de vacaciones, para que el descanso quede agrupado con
+    # las vacaciones. El tamaño de la «ventana» a cada lado son los días mínimos
+    # de arriba (por defecto 2). Se cumple en al menos uno de los dos lados.
+    procurar_descanso_alrededor: bool = True
 
 
 @dataclass
@@ -81,7 +90,10 @@ class PesosObjetivos:
     agrupar_descansos: int = 70
     recuperacion_tras_noche: int = 35
     evitar_cambios_bruscos: int = 45
-    adaptacion_vacaciones: int = 50
+    # Procurar días libres agrupados justo antes o después de las vacaciones.
+    # Objetivo blando: se intenta, pero cede ante la cobertura y el equilibrio de
+    # horas si hiciera falta.
+    adaptacion_vacaciones: int = 600
     tener_en_cuenta_historico: int = 60
 
 

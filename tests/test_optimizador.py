@@ -88,5 +88,49 @@ def test_genera_cuadrante_cubierto():
     return resultado
 
 
+def test_reglas_noche_viernes_y_vacaciones():
+    """Comprueba: (R1) noche de viernes solo con fin de semana completo de noche,
+    (R2) sin noche el día previo a las vacaciones."""
+    from cuadrantes.dominio.calendario import CalendarioMes
+
+    trabajadores = _plantilla_naturgy()
+    config = Configuracion()
+    config.tiempo_maximo_solver_segundos = 20
+
+    # Un trabajador que hace noches se va de vacaciones a partir del día 12.
+    ausencias = [
+        Ausencia(id=1, trabajador_id=5, tipo=TipoAusencia.VACACIONES,
+                 fecha_inicio=date(2026, 1, 12), fecha_fin=date(2026, 1, 20)),
+    ]
+
+    optimizador = OptimizadorCuadrante(2026, 1, trabajadores, config, ausencias=ausencias)
+    resultado = optimizador.resolver()
+    assert resultado.estado_solver in ("OPTIMAL", "FEASIBLE")
+    assert not resultado.puestos_sin_cubrir, resultado.puestos_sin_cubrir
+
+    cuad = resultado.cuadrante
+    cal = CalendarioMes(2026, 1)
+
+    def es_noche(t_id, dia):
+        a = cuad.obtener(t_id, dia)
+        return a is not None and a.es_noche
+
+    # (R1) Ninguna noche de viernes sin sábado Y domingo también de noche.
+    for sabado, domingo in cal.fines_de_semana():
+        viernes = sabado - 1
+        if viernes < 1:
+            continue
+        for t in trabajadores:
+            if es_noche(t.id, viernes):
+                assert es_noche(t.id, sabado) and es_noche(t.id, domingo), (
+                    f"{t.nombre} hace noche el viernes {viernes} sin el finde completo")
+
+    # (R2) El día previo al inicio de las vacaciones (día 11) no puede ser noche.
+    assert not es_noche(5, 11), "No debe haber noche el día previo a las vacaciones"
+
+    print("OK: reglas de noche de viernes y de vacaciones respetadas")
+
+
 if __name__ == "__main__":
     test_genera_cuadrante_cubierto()
+    test_reglas_noche_viernes_y_vacaciones()
