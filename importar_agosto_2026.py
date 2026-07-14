@@ -17,6 +17,7 @@ si hubiera que ajustar alguna celda concreta.
 
 from __future__ import annotations
 
+import unicodedata
 from datetime import date
 
 from cuadrantes.config.constantes import EstadoCuadrante, Puesto, TipoAusencia, Turno
@@ -94,23 +95,37 @@ def construir_cuadrante(mapa_nombres: dict[str, int]) -> Cuadrante:
     return cuad
 
 
+def _normalizar(nombre: str) -> str:
+    """Nombre en mayúsculas y sin tildes, para emparejar aunque cambien los acentos.
+
+    Así "IVAN DIAZ MOYA" (como aparece en el PDF) se reconoce como "IVÁN DÍAZ MOYA"
+    (como está en la plantilla) y no se crea un trabajador duplicado.
+    """
+    sin_tildes = "".join(
+        c for c in unicodedata.normalize("NFD", nombre)
+        if unicodedata.category(c) != "Mn")
+    return " ".join(sin_tildes.upper().split())
+
+
 def main() -> int:
     servicio = ServicioCuadrantes(str(ruta_base_datos()))
     cargar_plantilla_ejemplo(servicio)
 
-    # Asegurar que todos los trabajadores del cuadrante existen (crea los que falten,
-    # p. ej. Alicia si no estuviera en la plantilla actual).
-    existentes = {t.nombre: t for t in servicio.trabajadores.listar()}
+    # Emparejar cada nombre del cuadrante con el trabajador ya existente (ignorando
+    # tildes y mayúsculas). Si no existe ninguno equivalente, se crea (p. ej. Alicia).
+    por_norma = {_normalizar(t.nombre): t for t in servicio.trabajadores.listar()}
     todos = set(Puesto)
+    mapa: dict[str, int] = {}
     for nombre in AGOSTO:
-        if nombre not in existentes:
-            nuevo = Trabajador(
+        existente = por_norma.get(_normalizar(nombre))
+        if existente is None:
+            existente = servicio.trabajadores.guardar(Trabajador(
                 id=None, nombre=nombre,
                 puestos_diurnos_permitidos=set(todos),
                 puestos_nocturnos_permitidos={Puesto.F1, Puesto.F2},
-                notas="Añadido al importar agosto 2026.")
-            existentes[nombre] = servicio.trabajadores.guardar(nuevo)
-    mapa = {n: existentes[n].id for n in AGOSTO}
+                notas="Añadido al importar agosto 2026."))
+            por_norma[_normalizar(nombre)] = existente
+        mapa[nombre] = existente.id
 
     cuad = construir_cuadrante(mapa)
 
