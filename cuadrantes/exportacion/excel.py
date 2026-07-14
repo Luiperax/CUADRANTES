@@ -17,7 +17,7 @@ from datetime import date
 from pathlib import Path
 
 from openpyxl import Workbook
-from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Protection, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.page import PageMargins
 
@@ -40,6 +40,13 @@ _LADO_FINO = Side(style="thin", color=Colores.BORDE)
 _BORDE = Border(left=_LADO_FINO, right=_LADO_FINO, top=_LADO_FINO, bottom=_LADO_FINO)
 _CENTRO = Alignment(horizontal="center", vertical="center", wrap_text=True)
 _IZQUIERDA = Alignment(horizontal="left", vertical="center")
+
+# Todas las celdas se marcan como NO bloqueadas para que el fichero se declare
+# explícitamente editable. Por defecto openpyxl marca las celdas como «locked»,
+# lo que, aunque solo tiene efecto si se protege la hoja (aquí nunca se protege),
+# algunos visores (sobre todo de móvil) interpretan como «solo lectura». Así se
+# garantiza que el cuadrante se pueda modificar a mano en cualquier programa.
+_EDITABLE = Protection(locked=False)
 
 _FUENTE_TITULO = Font(name="Arial", size=14, bold=True)
 _FUENTE_NORMAL = Font(name="Arial", size=8)
@@ -88,6 +95,8 @@ class ExportadorExcel:
 
     # ------------------------------------------------------------------
     def _configurar_pagina(self, hoja) -> None:
+        # La hoja NUNCA se protege: el cuadrante debe poder editarse a mano.
+        hoja.protection.sheet = False
         hoja.page_setup.orientation = "landscape"
         hoja.page_setup.fitToWidth = 1
         hoja.page_setup.fitToHeight = 0
@@ -100,6 +109,7 @@ class ExportadorExcel:
         celda = hoja.cell(row=fila, column=col, value=valor)
         celda.font = fuente
         celda.alignment = alineacion
+        celda.protection = _EDITABLE  # Celda editable en cualquier programa.
         if borde:
             celda.border = _BORDE
         if relleno:
