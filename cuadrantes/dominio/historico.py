@@ -61,7 +61,6 @@ class AgregadorHistorico:
             festivos_fechas = {_date(cuadrante.anio, cuadrante.mes, d) for d in festivos_dias}
             calendario = CalendarioMes(cuadrante.anio, cuadrante.mes, festivos_fechas)
             sabados = set(calendario.sabados())
-            festivos_finde = {d for d in calendario.dias if calendario.es_festivo_o_finde(d)}
 
             for (trabajador_id, dia), asignacion in cuadrante.asignaciones.items():
                 carga = acumulado.setdefault(trabajador_id, CargaHistorica(trabajador_id))
@@ -72,7 +71,8 @@ class AgregadorHistorico:
                     carga.noches += 1
                 if dia in sabados:
                     carga.fines_semana += 1
-                if dia in festivos_finde and not calendario.es_fin_de_semana(dia):
+                # Cualquier festivo trabajado cuenta, aunque caiga en fin de semana.
+                if dia in festivos_dias:
                     carga.festivos += 1
                 puesto = asignacion.codigo_puesto()
                 carga.puestos[puesto] = carga.puestos.get(puesto, 0) + 1

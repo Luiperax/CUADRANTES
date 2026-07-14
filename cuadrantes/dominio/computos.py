@@ -37,10 +37,10 @@ def calcular_resumenes(
         calendario = CalendarioMes(cuadrante.anio, cuadrante.mes)
 
     sabados = set(calendario.sabados())
-    festivos_reales = {
-        d for d in calendario.dias
-        if calendario.es_festivo(d) and not calendario.es_fin_de_semana(d)
-    }
+    # Se cuenta como festivo trabajado CUALQUIER día festivo, aunque caiga en
+    # sábado o domingo. Un festivo trabajado en fin de semana cuenta a la vez como
+    # fin de semana y como festivo (son dos magnitudes distintas).
+    festivos_reales = {d for d in calendario.dias if calendario.es_festivo(d)}
 
     resumenes: dict[int, ResumenTrabajadorMes] = {}
     for trabajador_id in cuadrante.trabajadores_ids or trabajadores.keys():
