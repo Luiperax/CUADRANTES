@@ -51,8 +51,16 @@ jobs:
 
       - name: Revisar el mercado y notificar
         env:
+          # Telegram (recomendado). Deja en blanco los que no uses.
           ORO_TELEGRAM_TOKEN: ${{ secrets.ORO_TELEGRAM_TOKEN }}
           ORO_TELEGRAM_CHAT_ID: ${{ secrets.ORO_TELEGRAM_CHAT_ID }}
+          # Email (alternativa: todo el mundo tiene correo). Ver oro/notificaciones.
+          ORO_SMTP_HOST: ${{ secrets.ORO_SMTP_HOST }}
+          ORO_SMTP_USUARIO: ${{ secrets.ORO_SMTP_USUARIO }}
+          ORO_SMTP_CLAVE: ${{ secrets.ORO_SMTP_CLAVE }}
+          ORO_SMTP_DESTINO: ${{ secrets.ORO_SMTP_DESTINO }}
+          # Webhook genérico (push/WhatsApp API/Slack…), opcional.
+          ORO_WEBHOOK_URL: ${{ secrets.ORO_WEBHOOK_URL }}
         run: python -m oro.alerta
 
       - name: Guardar el estado si cambió
