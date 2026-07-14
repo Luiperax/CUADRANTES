@@ -64,6 +64,8 @@ class RunnerVivo:
         self.abiertas: List[GestorOperaciones] = []
         self._senales_hoy = 0
         self._fecha: Optional[date] = None
+        self.historial: List[dict] = []          # eventos recientes (entradas y salidas).
+        self._ultimo_ciclo: Optional[CicloResultado] = None
 
     # ---- un ciclo del bucle ----
     def ciclo(self, velas: int = 500) -> CicloResultado:
@@ -94,6 +96,11 @@ class RunnerVivo:
             for ev in gestor.actualizar(precio, momento):
                 self._notificar_evento(ev, gestor)
                 resultado.eventos_salida.append(ev.mensaje)
+                self._registrar_historial({
+                    "tipo": ev.tipo.value, "momento": momento.isoformat(),
+                    "precio": round(ev.precio, 2), "mensaje": ev.mensaje,
+                    "r": round(ev.r_acumulado, 2),
+                })
             if not gestor.abierta:
                 self.abiertas.remove(gestor)
         resultado.abiertas = len(self.abiertas)
@@ -112,12 +119,39 @@ class RunnerVivo:
                 self._senales_hoy += 1
                 self.notificador.notificar_senal(analisis.signal)
                 resultado.nueva_senal = analisis.signal
+                s = analisis.signal
+                self._registrar_historial({
+                    "tipo": "entrada", "momento": momento.isoformat(),
+                    "direccion": s.direccion.value, "entrada": round(precio, 2),
+                    "stop": round(s.stop_loss, 2),
+                    "mensaje": s.resumen(), "prob": round(s.probabilidad, 2),
+                })
             else:
                 resultado.motivo_sin_entrada = "; ".join(analisis.motivos_no) or analisis.mensaje
 
         resultado.senales_hoy = self._senales_hoy
         resultado.abiertas = len(self.abiertas)
+        self._ultimo_ciclo = resultado
         return resultado
+
+    def _registrar_historial(self, entrada: dict) -> None:
+        self.historial.insert(0, entrada)
+        del self.historial[50:]  # conservar solo los 50 eventos más recientes.
+
+    def estado(self) -> dict:
+        """Instantánea serializable del estado en vivo (para el panel/API)."""
+        r = self._ultimo_ciclo
+        precio = r.precio if r else None
+        return {
+            "actualizado": r.momento.isoformat() if r else None,
+            "precio": round(precio, 2) if precio else None,
+            "sentimiento": r.resumen_sentimiento if r else "sin datos aún",
+            "senales_hoy": self._senales_hoy,
+            "tope_diario": self.cfg.riesgo.operaciones_max_dia,
+            "motivo_sin_entrada": r.motivo_sin_entrada if r else "",
+            "abiertas": [g.resumen_estado(precio) for g in self.abiertas],
+            "historial": list(self.historial),
+        }
 
     # ---- bucle continuo (para la máquina del usuario) ----
     def ejecutar(self, intervalo_seg: int = 900, max_ciclos: Optional[int] = None) -> None:

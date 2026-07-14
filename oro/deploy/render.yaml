@@ -1,0 +1,38 @@
+# Plano de despliegue del PANEL EN VIVO de XAU/USD para Render (render.com).
+#
+# Da una URL fija tipo https://oro-xauusd.onrender.com para abrir desde el móvil,
+# con el motor ejecutándose en segundo plano y avisos por Telegram.
+#
+# CÓMO USARLO (dos opciones):
+#   A) Blueprint: copia este fichero a la RAÍZ del repo como `render.yaml`
+#      (ojo: sustituye al blueprint de la app de cuadrantes) y en Render haz
+#      New -> Blueprint -> selecciona el repo -> Apply.
+#   B) Sin blueprint (recomendado para no tocar cuadrantes): en Render haz
+#      New -> Web Service, y define a mano:
+#         Build   : pip install -r oro/requirements.txt
+#         Start   : uvicorn oro.web:app --host 0.0.0.0 --port $PORT
+#
+# Después, en «Environment», define los secretos (ver más abajo).
+# Plan gratuito: el servicio se «duerme» tras inactividad; la primera visita
+# tarda unos segundos y el motor se reanuda al despertar. Para 24/7 real usa un
+# plan de pago o un «cron»/uptime que lo mantenga despierto.
+services:
+  - type: web
+    name: oro-xauusd
+    runtime: python
+    plan: free
+    buildCommand: pip install -r oro/requirements.txt
+    startCommand: uvicorn oro.web:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: ORO_INTERVALO
+        value: "900"                 # segundos entre revisiones (900 = 15 min).
+      - key: ORO_PANEL_CLAVE
+        sync: false                  # clave del panel (secreta, se pone en Render).
+      - key: ORO_TELEGRAM_TOKEN
+        sync: false                  # token del bot de Telegram (secreto).
+      - key: ORO_TELEGRAM_CHAT_ID
+        sync: false                  # tu chat_id de Telegram (secreto).
+      - key: ORO_CAPITAL
+        value: "10000"
+      - key: ORO_RIESGO_POR_OPERACION
+        value: "0.005"

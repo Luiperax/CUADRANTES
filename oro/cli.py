@@ -160,10 +160,25 @@ def _cmd_servir(args) -> int:
     except ImportError:
         print("uvicorn no está instalado. Instale con: pip install 'uvicorn[standard]' fastapi")
         return 1
-    from .api import crear_app
 
-    app = crear_app()
-    print(f"Panel disponible en http://{args.host}:{args.port}/oro/panel")
+    if args.vivo:
+        # Panel EN VIVO: el motor corre en segundo plano y notifica al móvil.
+        from .api.vivo_web import crear_app_vivo
+        from .vivo import RunnerVivo
+
+        runner = RunnerVivo(
+            cargar_configuracion(), proveedor=_proveedor_vivo(args),
+            notificador=_construir_notificador(),
+        )
+        app = crear_app_vivo(runner, intervalo=args.intervalo)
+        print(_AVISO)
+        print(f"Panel EN VIVO en http://{args.host}:{args.port}/oro/panel "
+              f"(revisión cada {args.intervalo}s).")
+    else:
+        from .api import crear_app
+
+        app = crear_app()
+        print(f"Panel (bajo demanda) en http://{args.host}:{args.port}/oro/panel")
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
     return 0
 
@@ -194,6 +209,10 @@ def main(argv=None) -> int:
     p_srv = sub.add_parser("servir", help="Arranca la API/panel.")
     p_srv.add_argument("--host", default="127.0.0.1")
     p_srv.add_argument("--port", type=int, default=8010)
+    p_srv.add_argument("--vivo", action="store_true",
+                       help="Panel EN VIVO: motor en segundo plano + notificaciones.")
+    p_srv.add_argument("--intervalo", type=int, default=900,
+                       help="Segundos entre ciclos del panel en vivo (900 = 15 min).")
 
     args = parser.parse_args(argv)
     despacho = {

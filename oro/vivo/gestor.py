@@ -131,3 +131,22 @@ class GestorOperaciones:
     @property
     def abierta(self) -> bool:
         return self.estado is EstadoOperacion.ABIERTA
+
+    def resumen_estado(self, precio_actual: float | None = None) -> dict:
+        """Estado serializable de la operación para el panel/API en vivo."""
+        r_flotante = self._r_en(precio_actual) * self.restante if precio_actual else None
+        return {
+            "direccion": self.direccion.value,
+            "entrada": round(self.entrada, 2),
+            "stop_actual": round(self.stop_actual, 2),
+            "en_breakeven": self._en_breakeven,
+            "restante": round(self.restante, 2),
+            "r_asegurado": round(self.r_acumulado, 2),
+            "r_flotante": round(r_flotante, 2) if r_flotante is not None else None,
+            "estado": self.estado.value,
+            "objetivos": [
+                {"precio": round(n.precio, 2), "r": n.r_multiple,
+                 "fraccion": n.fraccion, "alcanzado": n.alcanzado}
+                for n in self.niveles
+            ],
+        }

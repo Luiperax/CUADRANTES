@@ -64,9 +64,25 @@ python -m oro.cli entrenar --sintetico
 # Demostración de extremo a extremo con datos SINTÉTICOS (sin conexión):
 python -m oro.cli demo
 
-# API + panel de control (http://127.0.0.1:8010/oro/panel):
+# API + panel de control bajo demanda (http://127.0.0.1:8010/oro/panel):
 python -m oro.cli servir
+
+# ⭐ PANEL EN VIVO para el móvil: motor en segundo plano + notificaciones:
+python -m oro.cli servir --vivo            # abre /oro/panel (se refresca solo)
 ```
+
+### Acceso desde el móvil
+
+Dos formas (compatibles entre sí), explicadas paso a paso en
+[`DESPLIEGUE_MOVIL.md`](DESPLIEGUE_MOVIL.md):
+
+- **Avisos por Telegram**: recibes cada entrada/salida en el móvil. Solo necesitas
+  un bot (`ORO_TELEGRAM_TOKEN` + `ORO_TELEGRAM_CHAT_ID`) y dejar el motor
+  corriendo (`python -m oro.cli vivo`).
+- **Panel web con URL fija (nube)**: despliega `uvicorn oro.web:app` en Render
+  (o cualquier VPS) y abre la URL desde el móvil. Muestra precio, sentimiento,
+  operaciones abiertas y eventos en vivo; protégelo con `ORO_PANEL_CLAVE`.
+  Plantilla lista en [`deploy/render.yaml`](deploy/render.yaml).
 
 ### Notificaciones al móvil
 
