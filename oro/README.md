@@ -79,6 +79,11 @@ Dos formas (compatibles entre sí), explicadas paso a paso en
 - **Avisos por Telegram**: recibes cada entrada/salida en el móvil. Solo necesitas
   un bot (`ORO_TELEGRAM_TOKEN` + `ORO_TELEGRAM_CHAT_ID`) y dejar el motor
   corriendo (`python -m oro.cli vivo`).
+- **En la nube SIN Render (GitHub Actions)**: el workflow
+  [`.github/workflows/oro-alertas.yml`](../.github/workflows/oro-alertas.yml)
+  ejecuta `python -m oro.alerta` cada ~15 min en los servidores de GitHub y te
+  avisa por Telegram. Sin tarjeta ni servidor propio; el estado (operaciones
+  abiertas) se guarda en el repo para seguir las salidas entre ejecuciones.
 - **Panel web con URL fija (nube)**: despliega `uvicorn oro.web:app` en Render
   (o cualquier VPS) y abre la URL desde el móvil. Muestra precio, sentimiento,
   operaciones abiertas y eventos en vivo; protégelo con `ORO_PANEL_CLAVE`.

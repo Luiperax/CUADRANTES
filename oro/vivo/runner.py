@@ -138,6 +138,38 @@ class RunnerVivo:
         self.historial.insert(0, entrada)
         del self.historial[50:]  # conservar solo los 50 eventos más recientes.
 
+    # ---- persistencia del estado entre ejecuciones (para GitHub Actions/cron) ----
+    def guardar_estado(self, ruta) -> None:
+        """Guarda operaciones abiertas, contador diario e historial en un JSON."""
+        import json
+        from pathlib import Path
+
+        datos = {
+            "fecha": self._fecha.isoformat() if self._fecha else None,
+            "senales_hoy": self._senales_hoy,
+            "historial": self.historial,
+            "abiertas": [g.a_dict() for g in self.abiertas],
+        }
+        p = Path(ruta)
+        if p.parent != Path(""):
+            p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(datos, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    def cargar_estado(self, ruta) -> None:
+        """Carga el estado previo si el fichero existe (si no, empieza limpio)."""
+        import json
+        from datetime import date
+        from pathlib import Path
+
+        p = Path(ruta)
+        if not p.exists():
+            return
+        datos = json.loads(p.read_text(encoding="utf-8"))
+        self._fecha = date.fromisoformat(datos["fecha"]) if datos.get("fecha") else None
+        self._senales_hoy = int(datos.get("senales_hoy", 0))
+        self.historial = list(datos.get("historial", []))
+        self.abiertas = [GestorOperaciones.desde_dict(x) for x in datos.get("abiertas", [])]
+
     def estado(self) -> dict:
         """Instantánea serializable del estado en vivo (para el panel/API)."""
         r = self._ultimo_ciclo

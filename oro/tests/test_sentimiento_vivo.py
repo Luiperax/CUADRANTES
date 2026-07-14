@@ -153,3 +153,35 @@ def test_runner_respeta_tope_diario():
     r = runner.ciclo()
     assert r.nueva_senal is None
     assert "diario" in r.motivo_sin_entrada.lower()
+
+
+def test_estado_persiste_entre_ejecuciones(tmp_path):
+    """El estado (operación abierta + contador) sobrevive a un proceso nuevo."""
+    from oro.config import cargar_configuracion
+    from oro.dominio import Direccion, Signal, TakeProfit
+    from oro.vivo import GestorOperaciones, RunnerVivo
+
+    ruta = tmp_path / "estado.json"
+    cfg = cargar_configuracion()
+    r1 = RunnerVivo(cfg, proveedor=ProveedorSintetico(velas=1000, semilla=1),
+                    analizador=AnalizadorSentimiento(fuente_titulares=lambda: [], fuente_eventos=lambda: []),
+                    usar_sentimiento=False)
+    sig = Signal(momento=_ahora(), direccion=Direccion.COMPRA, entrada=2000, stop_loss=1990,
+                 take_profits=[TakeProfit(2010, 0.5, 1.0), TakeProfit(2020, 0.5, 2.0)],
+                 probabilidad=0.6, confianza=0.7, riesgo_recompensa=1.5, tamano_posicion=5.0)
+    r1.abiertas.append(GestorOperaciones(sig))
+    r1._senales_hoy = 1
+    r1._fecha = _ahora().date()
+    r1.guardar_estado(ruta)
+
+    # Proceso nuevo: carga y continúa la gestión hasta el cierre en break-even.
+    r2 = RunnerVivo(cfg, proveedor=ProveedorSintetico(velas=1000, semilla=1),
+                    analizador=AnalizadorSentimiento(fuente_titulares=lambda: [], fuente_eventos=lambda: []),
+                    usar_sentimiento=False)
+    r2.cargar_estado(ruta)
+    assert len(r2.abiertas) == 1 and r2._senales_hoy == 1
+    g = r2.abiertas[0]
+    g.actualizar(2010, _ahora())          # TP1 -> break-even.
+    assert g.stop_actual == 2000
+    g.actualizar(2000, _ahora())          # vuelve a BE -> cierre protegido.
+    assert g.r_acumulado == pytest.approx(0.5)

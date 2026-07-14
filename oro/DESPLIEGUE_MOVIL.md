@@ -40,7 +40,41 @@ para 24/7 usa la nube, Opción B.)
 
 ---
 
-## Opción B — Panel web con URL fija (nube)
+## Opción C — En la nube SIN Render (GitHub Actions) ⭐ recomendada si no quieres Render
+
+Usa algo que **ya tienes**: tu repositorio de GitHub. GitHub ejecuta el programa
+cada ~15 min en sus servidores y te avisa por Telegram cuándo entrar y salir.
+**Sin Render, sin tarjeta, sin servidor que mantener.** Ya está todo listo en el
+repo (workflow `.github/workflows/oro-alertas.yml` + `python -m oro.alerta`).
+
+Puesta en marcha (una vez):
+1. **Crea el bot de Telegram** y consigue `token` y `chat_id` (ver Opción A, punto 1).
+2. **Fusiona esta rama en `main`.** Importante: las tareas programadas de GitHub
+   solo se ejecutan desde la rama por defecto.
+3. En GitHub: **Settings → Secrets and variables → Actions → New repository
+   secret**, y crea dos secretos:
+   - `ORO_TELEGRAM_TOKEN`
+   - `ORO_TELEGRAM_CHAT_ID`
+4. En **Settings → Actions → General**, confirma que Actions está habilitado.
+   (Opcional: en la pestaña **Actions → Alertas XAU/USD → Run workflow** puedes
+   lanzarlo a mano para probar sin esperar.)
+
+A partir de ahí, recibes los avisos en el móvil. El programa recuerda tus
+operaciones abiertas entre ejecuciones guardando el estado en el propio repo
+(`oro_estado.json`), así que las salidas (mover stop, objetivos, cierre) se
+siguen correctamente.
+
+Limitaciones honestas:
+- GitHub puede **retrasar** la tarea varios minutos si sus servidores están
+  cargados; no es un tick exacto cada 15 min.
+- Si el repo pasa **60 días sin actividad**, GitHub pausa las tareas programadas
+  (se reactivan con un commit o desde la pestaña Actions).
+- No incluye panel con URL; da las **notificaciones** (que es lo que pediste).
+  Si además quieres el panel visual, combínalo con la Opción B.
+
+---
+
+## Opción B — Panel web con URL fija (nube, requiere un host)
 
 Un panel que abres desde el navegador del móvil y muestra, en vivo: precio,
 sentimiento de noticias, operaciones abiertas y últimos eventos. Se refresca solo.

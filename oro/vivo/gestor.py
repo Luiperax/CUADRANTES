@@ -132,6 +132,41 @@ class GestorOperaciones:
     def abierta(self) -> bool:
         return self.estado is EstadoOperacion.ABIERTA
 
+    def a_dict(self) -> dict:
+        """Serializa TODO el estado interno para poder reanudar en otra ejecución."""
+        return {
+            "direccion": self.direccion.value,
+            "entrada": self.entrada,
+            "riesgo": self._riesgo,
+            "stop_actual": self.stop_actual,
+            "en_breakeven": self._en_breakeven,
+            "restante": self.restante,
+            "r_acumulado": self.r_acumulado,
+            "estado": self.estado.value,
+            "abierta_en": self.abierta_en.isoformat(),
+            "resumen": self.signal.resumen() if self.signal else "",
+            "niveles": [
+                [n.precio, n.fraccion, n.r_multiple, n.alcanzado] for n in self.niveles
+            ],
+        }
+
+    @classmethod
+    def desde_dict(cls, d: dict) -> "GestorOperaciones":
+        """Reconstruye un gestor desde su estado serializado (sin necesitar la Signal)."""
+        g = object.__new__(cls)
+        g.signal = None
+        g.direccion = Direccion(d["direccion"])
+        g.entrada = d["entrada"]
+        g._riesgo = d["riesgo"]
+        g.stop_actual = d["stop_actual"]
+        g._en_breakeven = d["en_breakeven"]
+        g.restante = d["restante"]
+        g.r_acumulado = d["r_acumulado"]
+        g.estado = EstadoOperacion(d["estado"])
+        g.abierta_en = datetime.fromisoformat(d["abierta_en"])
+        g.niveles = [_NivelTP(p, f, r, alc) for p, f, r, alc in d["niveles"]]
+        return g
+
     def resumen_estado(self, precio_actual: float | None = None) -> dict:
         """Estado serializable de la operación para el panel/API en vivo."""
         r_flotante = self._r_en(precio_actual) * self.restante if precio_actual else None

@@ -1,0 +1,68 @@
+# Vigilante de XAU/USD en la nube — SIN Render, SIN tarjeta.
+#
+# GitHub ejecuta este trabajo cada ~15 minutos, revisa el mercado del oro y te
+# avisa por Telegram cuándo entrar y cuándo salir (2–4 señales/día). El estado
+# (operaciones abiertas y contador diario) se guarda en el propio repo para que
+# las salidas se sigan entre ejecuciones.
+#
+# PUESTA EN MARCHA (una sola vez):
+#   1. Fusiona esta rama en la rama por defecto (main): las tareas programadas
+#      SOLO se ejecutan desde la rama por defecto.
+#   2. En GitHub: Settings → Secrets and variables → Actions → New repository
+#      secret, y crea:
+#        ORO_TELEGRAM_TOKEN    (token del bot de @BotFather)
+#        ORO_TELEGRAM_CHAT_ID  (tu chat_id)
+#      (Sin estos secretos el trabajo funciona igual, pero no envía a Telegram:
+#       solo deja el aviso en el registro de la ejecución.)
+#   3. Settings → Actions → General → asegúrate de que Actions está habilitado.
+#
+# Notas honestas:
+#   - GitHub puede retrasar las tareas programadas varios minutos si hay carga.
+#   - Si el repo queda 60 días sin actividad, GitHub pausa las tareas
+#     programadas (basta con volver a activarlas o hacer un commit).
+
+name: Alertas XAU/USD
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # cada 15 minutos (aprox.).
+  workflow_dispatch: {}        # permite lanzarlo a mano desde la pestaña Actions.
+
+permissions:
+  contents: write              # para guardar el estado (oro_estado.json) en el repo.
+
+concurrency:
+  group: oro-alertas
+  cancel-in-progress: false    # no solapar ejecuciones.
+
+jobs:
+  revisar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install -r oro/requirements-web.txt
+
+      - name: Revisar el mercado y notificar
+        env:
+          ORO_TELEGRAM_TOKEN: ${{ secrets.ORO_TELEGRAM_TOKEN }}
+          ORO_TELEGRAM_CHAT_ID: ${{ secrets.ORO_TELEGRAM_CHAT_ID }}
+        run: python -m oro.alerta
+
+      - name: Guardar el estado si cambió
+        run: |
+          if [ -n "$(git status --porcelain oro_estado.json)" ]; then
+            git config user.name "oro-alertas-bot"
+            git config user.email "actions@users.noreply.github.com"
+            git add oro_estado.json
+            git commit -m "Estado de alertas XAU/USD [skip ci]"
+            git push
+          else
+            echo "Sin cambios en el estado."
+          fi
