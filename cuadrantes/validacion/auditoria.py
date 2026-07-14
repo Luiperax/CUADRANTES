@@ -70,12 +70,15 @@ class Auditor:
         trabajadores: dict[int, Trabajador],
         configuracion: Configuracion,
         ausencias: list[Ausencia] | None = None,
+        festivos: set | None = None,
     ):
         self.cuadrante = cuadrante
         self.trabajadores = trabajadores
         self.config = configuracion
         self.ausencias = ausencias or []
-        self.calendario = CalendarioMes(cuadrante.anio, cuadrante.mes)
+        # El calendario necesita los festivos para contar los festivos trabajados
+        # y para auditar el equilibrio anual de festivos correctamente.
+        self.calendario = CalendarioMes(cuadrante.anio, cuadrante.mes, festivos or set())
         self.resumenes = calcular_resumenes(cuadrante, trabajadores, self.calendario)
 
     def _nombre(self, trabajador_id: int) -> str:
@@ -382,6 +385,10 @@ class Auditor:
             self._regla_equilibrio("horas_trabajadas", "Horas ordinarias", tolerancia=24),
             self._regla_equilibrio("horas_extra", "Horas extraordinarias", tolerancia=24),
             self._regla_equilibrio("numero_noches", "Noches", tolerancia=3, solo_nocturnos=True),
+            # Los festivos se equilibran a lo largo del AÑO (memoria histórica), no
+            # mes a mes; por eso la tolerancia mensual es holgada: aquí solo se da
+            # visibilidad al reparto del mes, sin generar falsas alarmas.
+            self._regla_equilibrio("numero_festivos", "Festivos", tolerancia=2),
             self._regla_fines_semana(),
             self._regla_descansos(),
             self._regla_vacaciones(),

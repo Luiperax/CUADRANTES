@@ -129,7 +129,10 @@ def crear_app(ruta_bd: str = _RUTA_BD) -> FastAPI:
         if not cuad:
             return RedirectResponse("/", status_code=303)
         trabajadores = srv.mapa_trabajadores()
-        cal = CalendarioMes(cuad.anio, cuad.mes)
+        # Con los festivos del mes, el calendario los sombrea y cuenta los festivos
+        # trabajados correctamente en las columnas de cómputo.
+        festivos = srv.festivos_del_mes(cuad.anio, cuad.mes)
+        cal = CalendarioMes(cuad.anio, cuad.mes, festivos)
         resumenes = calcular_resumenes(cuad, trabajadores, cal)
         informe = srv.auditar(cuad)
 

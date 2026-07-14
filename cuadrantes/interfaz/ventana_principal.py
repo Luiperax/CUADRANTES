@@ -193,8 +193,10 @@ class VentanaPrincipal(QtWidgets.QMainWindow):
         self.indicador.setText(mensaje)
 
     def _mostrar_cuadrante(self, cuadrante) -> None:
+        self.cuadrante_actual = cuadrante
         self.vista_calendario.trabajadores = self.servicio.mapa_trabajadores()
-        self.vista_calendario.cargar(cuadrante)
+        festivos = self.servicio.festivos_del_mes(cuadrante.anio, cuadrante.mes)
+        self.vista_calendario.cargar(cuadrante, festivos)
         self.etiqueta_titulo.setText(
             f"{NOMBRES_MES[cuadrante.mes]} {cuadrante.anio} · v{cuadrante.version} · "
             f"{cuadrante.estado.descripcion}")
@@ -221,11 +223,16 @@ class VentanaPrincipal(QtWidgets.QMainWindow):
         self.tabla_auditoria.resizeColumnsToContents()
 
     def _actualizar_estadisticas(self) -> None:
+        from ..dominio.calendario import CalendarioMes
         from ..dominio.computos import calcular_resumenes
 
         cuad = self.cuadrante_actual
         trabajadores = self.servicio.mapa_trabajadores()
-        resumenes = calcular_resumenes(cuad, trabajadores)
+        # Cargar los festivos del mes para que las estadísticas (incluidos los
+        # festivos trabajados) sean correctas.
+        festivos = self.servicio.festivos_del_mes(cuad.anio, cuad.mes)
+        calendario = CalendarioMes(cuad.anio, cuad.mes, festivos)
+        resumenes = calcular_resumenes(cuad, trabajadores, calendario)
         ids = cuad.trabajadores_ids or list(trabajadores.keys())
 
         def nombre(tid):

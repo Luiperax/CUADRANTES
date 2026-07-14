@@ -61,10 +61,12 @@ def _relleno(color: str) -> PatternFill:
 class ExportadorExcel:
     """Genera el fichero .xlsx del cuadrante con el formato NATURGY."""
 
-    def __init__(self, cuadrante: Cuadrante, trabajadores: dict[int, Trabajador]):
+    def __init__(self, cuadrante: Cuadrante, trabajadores: dict[int, Trabajador],
+                 festivos: set[date] | None = None):
         self.cuadrante = cuadrante
         self.trabajadores = trabajadores
-        self.calendario = CalendarioMes(cuadrante.anio, cuadrante.mes)
+        # El calendario necesita los festivos para contar los festivos trabajados.
+        self.calendario = CalendarioMes(cuadrante.anio, cuadrante.mes, festivos or set())
         self.resumenes = calcular_resumenes(cuadrante, trabajadores, self.calendario)
         # Columna inicial de los días (tras la columna de nombres).
         self.col_nombre = 1

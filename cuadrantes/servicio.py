@@ -142,18 +142,26 @@ class ServicioCuadrantes:
             self.cuadrantes.guardar(resultado.cuadrante)
         return resultado
 
+    def festivos_del_mes(self, anio: int, mes: int) -> set[date]:
+        """Fechas festivas del mes, para contar los festivos trabajados y auditar
+        el equilibrio anual de festivos correctamente."""
+        return {f.fecha for f in self.festivos.listar_por_mes(anio, mes)}
+
     def auditar(self, cuadrante: Cuadrante) -> InformeAuditoria:
         config = self.configuracion()
         trabajadores = self.mapa_trabajadores()
         ausencias = self.ausencias.listar_por_mes(cuadrante.anio, cuadrante.mes)
-        return Auditor(cuadrante, trabajadores, config, ausencias).auditar()
+        festivos = self.festivos_del_mes(cuadrante.anio, cuadrante.mes)
+        return Auditor(cuadrante, trabajadores, config, ausencias, festivos=festivos).auditar()
 
     # ------------------------------------------------------------------
     def exportar_excel(self, cuadrante: Cuadrante, ruta: str | Path) -> Path:
-        return ExportadorExcel(cuadrante, self.mapa_trabajadores()).exportar(ruta)
+        festivos = self.festivos_del_mes(cuadrante.anio, cuadrante.mes)
+        return ExportadorExcel(cuadrante, self.mapa_trabajadores(), festivos=festivos).exportar(ruta)
 
     def exportar_pdf(self, cuadrante: Cuadrante, ruta: str | Path) -> Path:
-        return ExportadorPDF(cuadrante, self.mapa_trabajadores()).exportar(ruta)
+        festivos = self.festivos_del_mes(cuadrante.anio, cuadrante.mes)
+        return ExportadorPDF(cuadrante, self.mapa_trabajadores(), festivos=festivos).exportar(ruta)
 
     def exportar_informes(self, cuadrante: Cuadrante, ruta: str | Path) -> Path:
         ausencias = self.ausencias.listar_por_mes(cuadrante.anio, cuadrante.mes)

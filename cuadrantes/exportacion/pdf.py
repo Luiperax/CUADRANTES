@@ -35,10 +35,12 @@ def _hex(color: str) -> colors.Color:
 class ExportadorPDF:
     """Genera el PDF del cuadrante en A3 apaisado."""
 
-    def __init__(self, cuadrante: Cuadrante, trabajadores: dict[int, Trabajador]):
+    def __init__(self, cuadrante: Cuadrante, trabajadores: dict[int, Trabajador],
+                 festivos: set[date] | None = None):
         self.cuadrante = cuadrante
         self.trabajadores = trabajadores
-        self.calendario = CalendarioMes(cuadrante.anio, cuadrante.mes)
+        # El calendario necesita los festivos para contar los festivos trabajados.
+        self.calendario = CalendarioMes(cuadrante.anio, cuadrante.mes, festivos or set())
         self.resumenes = calcular_resumenes(cuadrante, trabajadores, self.calendario)
 
     def exportar(self, ruta: str | Path) -> Path:

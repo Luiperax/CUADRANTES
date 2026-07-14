@@ -110,9 +110,11 @@ class VistaCalendario(QtWidgets.QWidget):
         disp.addWidget(self.tabla)
 
     # ------------------------------------------------------------------
-    def cargar(self, cuadrante: Cuadrante) -> None:
+    def cargar(self, cuadrante: Cuadrante, festivos: set | None = None) -> None:
         self.cuadrante = cuadrante
-        self.calendario = CalendarioMes(cuadrante.anio, cuadrante.mes)
+        # Con los festivos, el calendario los sombrea como los fines de semana y
+        # cuenta correctamente los festivos trabajados en las columnas de cómputo.
+        self.calendario = CalendarioMes(cuadrante.anio, cuadrante.mes, festivos or set())
         self._pintar()
 
     def aplicar_filtro(self, texto: str) -> None:
