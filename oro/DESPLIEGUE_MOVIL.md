@@ -64,6 +64,32 @@ operaciones abiertas entre ejecuciones guardando el estado en el propio repo
 (`oro_estado.json`), así que las salidas (mover stop, objetivos, cierre) se
 siguen correctamente.
 
+### Recibir por EMAIL (en vez de, o además de, Telegram)
+
+Crea estos secretos en **Settings → Secrets and variables → Actions**:
+
+| Secreto | Qué poner | Gmail | Outlook/Hotmail | Yahoo |
+|---------|-----------|-------|-----------------|-------|
+| `ORO_SMTP_HOST` | servidor de salida | `smtp.gmail.com` | `smtp-mail.outlook.com` | `smtp.mail.yahoo.com` |
+| `ORO_SMTP_USUARIO` | tu correo completo | `tucorreo@gmail.com` | `tucorreo@outlook.com` | `tucorreo@yahoo.com` |
+| `ORO_SMTP_CLAVE` | **contraseña de aplicación** (NO tu contraseña normal) | ver abajo | ver abajo | ver abajo |
+| `ORO_SMTP_DESTINO` | dónde recibir el aviso | tu propio correo (o el que quieras) | | |
+
+> **Contraseña de aplicación (importante):** los proveedores no permiten SMTP con
+> tu contraseña normal. Necesitas una «contraseña de aplicación» de 16 caracteres:
+> - **Gmail:** activa la **Verificación en 2 pasos** y luego crea una en
+>   *myaccount.google.com → Seguridad → Contraseñas de aplicaciones*.
+> - **Outlook/Yahoo:** igual, activa 2FA y genera una «app password» en la
+>   configuración de seguridad de tu cuenta.
+>
+> El puerto por defecto es 587 (STARTTLS), que vale para Gmail/Outlook/Yahoo. Si
+> tu proveedor exige otro, añade el secreto `ORO_SMTP_PUERTO`.
+
+**Comprobar que funciona (sin esperar a una señal):** ve a la pestaña
+**Actions → «Alertas XAU/USD» → Run workflow**, marca **modo_prueba** y ejecútalo.
+Debe llegarte un correo de prueba (mira también la carpeta de spam). Si falla, el
+registro de la ejecución mostrará el motivo exacto.
+
 Limitaciones honestas:
 - GitHub puede **retrasar** la tarea varios minutos si sus servidores están
   cargados; no es un tick exacto cada 15 min.
