@@ -25,7 +25,7 @@ import unicodedata
 from datetime import date
 
 from cuadrantes.config.constantes import EstadoCuadrante, Puesto, TipoAusencia, Turno
-from cuadrantes.datos.datos_iniciales import cargar_plantilla_ejemplo
+from cuadrantes.datos.datos_iniciales import EQUIPO_ACTUAL, cargar_plantilla_ejemplo
 from cuadrantes.datos.modelos import Asignacion, Cuadrante, Trabajador
 from cuadrantes.dominio.computos import calcular_resumenes
 from cuadrantes.rutas import ruta_base_datos
@@ -154,19 +154,29 @@ def main() -> int:
     servicio = ServicioCuadrantes(str(ruta_base_datos()))
     cargar_plantilla_ejemplo(servicio)
 
-    # Índice de trabajadores existentes por nombre normalizado (crea los que falten,
-    # p. ej. Alicia si no estuviera aún en la plantilla).
+    # Índice de trabajadores existentes por nombre normalizado (crea los que falten).
     por_norma = {_norm(t.nombre): t for t in servicio.trabajadores.listar()}
     todos_puestos = set(Puesto)
+    # Personal FIJO = el equipo actual del centro. Quien aparezca en el histórico
+    # sin ser fijo (p. ej. Alicia, de refuerzo) se marca como NO activo: se conserva
+    # su historial pero el programa no la mete sola en los próximos cuadrantes.
+    fijos_norma = {_norm(e.nombre) for e in EQUIPO_ACTUAL}
     nombres_datos = {n for mm in MESES.values() for n in mm}
     for nombre in sorted(nombres_datos):
-        if _norm(nombre) not in por_norma:
-            nuevo = servicio.trabajadores.guardar(Trabajador(
-                id=None, nombre=nombre,
+        es_fijo = _norm(nombre) in fijos_norma
+        existente = por_norma.get(_norm(nombre))
+        if existente is None:
+            existente = servicio.trabajadores.guardar(Trabajador(
+                id=None, nombre=nombre, activo=es_fijo,
                 puestos_diurnos_permitidos=set(todos_puestos),
                 puestos_nocturnos_permitidos={Puesto.F1, Puesto.F2},
-                notas="Añadido al importar el histórico 2026."))
-            por_norma[_norm(nuevo.nombre)] = nuevo
+                notas="Personal de refuerzo (histórico 2026)." if not es_fijo
+                      else "Añadido al importar el histórico 2026."))
+            por_norma[_norm(nombre)] = existente
+        elif not es_fijo and existente.activo:
+            # Ya existía como activo pero no es fijo: pasarlo a eventual.
+            existente.activo = False
+            servicio.trabajadores.guardar(existente)
 
     trab = {t.id: t for t in servicio.trabajadores.listar()}
     total_ok = 0
