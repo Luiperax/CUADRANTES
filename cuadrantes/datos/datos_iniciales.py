@@ -33,6 +33,7 @@ class _PlantillaTrabajador:
     fines_semana_exactos: int | None = None
     es_jefe_equipo: bool = False
     prioridad_jefe: int = 0
+    maximizar_dias: bool = False
     notas: str = ""
 
     def a_trabajador(self) -> Trabajador:
@@ -44,6 +45,7 @@ class _PlantillaTrabajador:
             fines_semana_exactos=self.fines_semana_exactos,
             es_jefe_equipo=self.es_jefe_equipo,
             prioridad_jefe=self.prioridad_jefe,
+            maximizar_dias=self.maximizar_dias,
             notas=self.notas,
         )
 
@@ -66,9 +68,11 @@ EQUIPO_ACTUAL: list[_PlantillaTrabajador] = [
     _PlantillaTrabajador(
         "LUIS PERALTA ROS", set(_TODOS), set(), puede_hacer_noches=False,
         fines_semana_exactos=1, es_jefe_equipo=True, prioridad_jefe=2,
+        maximizar_dias=True,
         notas="Jefe de equipo. Cualquier puesto de mañana. Nunca noches. Un fin de "
               "semana al mes. F1 de mañana en laborable reservado a jefes. Recibe el "
-              "día extra de MT-F1 cuando el reparto no es par (prioridad mayor)."),
+              "día extra de MT-F1 cuando el reparto no es par (prioridad mayor). "
+              "Trabaja el máximo de días disponibles (puede encadenar muchos seguidos)."),
     _PlantillaTrabajador(
         "MOHAMED AMAR MOHAMED", {Puesto.MO}, {Puesto.F1, Puesto.F2},
         notas="Solo MO de mañana o cualquier puesto de noche. Nunca F1/F2/EX-MT."),
@@ -125,6 +129,9 @@ def sincronizar_equipo(servicio: ServicioCuadrantes) -> dict[str, list[str]]:
             actual.puestos_nocturnos_permitidos = set(definicion.puestos_nocturnos)
             actual.puede_hacer_noches = definicion.puede_hacer_noches
             actual.fines_semana_exactos = definicion.fines_semana_exactos
+            actual.es_jefe_equipo = definicion.es_jefe_equipo
+            actual.prioridad_jefe = definicion.prioridad_jefe
+            actual.maximizar_dias = definicion.maximizar_dias
             servicio.trabajadores.guardar(actual)
             if cambiado:
                 resultado["reactivados"].append(definicion.nombre)

@@ -55,6 +55,12 @@ class Trabajador:
     # prioridad mayor que Fernando recibe el día extra.)
     prioridad_jefe: int = 0
 
+    # Trabajar el máximo de días disponibles del mes, de forma excepcional, aunque
+    # eso suponga encadenar muchos días seguidos (queda exento del límite de días
+    # consecutivos y del descanso mínimo agrupado). Las reglas de fines de semana
+    # y de noches se siguen respetando siempre.
+    maximizar_dias: bool = False
+
     # Preferencias (objetivos blandos).
     prefiere_turno_dia: bool = False
     prefiere_turno_noche: bool = False

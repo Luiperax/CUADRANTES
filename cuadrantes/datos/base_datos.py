@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS trabajadores (
     fines_semana_exactos       INTEGER,
     es_jefe_equipo             INTEGER NOT NULL DEFAULT 0,
     prioridad_jefe             INTEGER NOT NULL DEFAULT 0,
+    maximizar_dias             INTEGER NOT NULL DEFAULT 0,
     prefiere_turno_dia         INTEGER NOT NULL DEFAULT 0,
     prefiere_turno_noche       INTEGER NOT NULL DEFAULT 0,
     notas                      TEXT    NOT NULL DEFAULT ''
@@ -169,6 +170,10 @@ class BaseDatos:
         if "prioridad_jefe" not in columnas:
             self.conexion.execute(
                 "ALTER TABLE trabajadores ADD COLUMN prioridad_jefe INTEGER NOT NULL DEFAULT 0"
+            )
+        if "maximizar_dias" not in columnas:
+            self.conexion.execute(
+                "ALTER TABLE trabajadores ADD COLUMN maximizar_dias INTEGER NOT NULL DEFAULT 0"
             )
 
     @contextmanager

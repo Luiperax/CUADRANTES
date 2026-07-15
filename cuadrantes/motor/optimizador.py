@@ -71,6 +71,11 @@ PENALIZACION_SIN_CUBRIR = 1_000_000
 PENALIZACION_DESCANSO_AISLADO = 8_000
 # Penalización por desviación en el reparto de F1 de mañana laborable entre jefes.
 PENALIZACION_REPARTO_F1 = 10_000
+# Recompensa por cada día trabajado de quien tiene «maximizar_dias» (trabaja el
+# máximo de días disponibles). Alta para que llene sus días, pero por debajo del
+# objetivo individual de fines de semana (20_000), de modo que NO le haga hacer
+# más fines de semana de la cuenta, y muy por debajo de la cobertura.
+RECOMPENSA_MAXIMIZAR_DIAS = 3_000
 
 
 class OptimizadorCuadrante:
@@ -305,14 +310,17 @@ class OptimizadorCuadrante:
         dias = self.calendario.dias
 
         for trabajador in self.trabajadores:
-            # Días consecutivos trabajados.
-            ventana = max_dias + 1
-            for inicio in range(0, len(dias) - ventana + 1):
-                variables = []
-                for offset in range(ventana):
-                    variables += self._variable_trabaja(trabajador.id, dias[inicio + offset])
-                if variables:
-                    self.modelo.Add(sum(variables) <= max_dias)
+            # Quien trabaja el máximo de días queda exento del límite de días
+            # consecutivos (puede encadenar muchos días seguidos de forma excepcional).
+            if not trabajador.maximizar_dias:
+                # Días consecutivos trabajados.
+                ventana = max_dias + 1
+                for inicio in range(0, len(dias) - ventana + 1):
+                    variables = []
+                    for offset in range(ventana):
+                        variables += self._variable_trabaja(trabajador.id, dias[inicio + offset])
+                    if variables:
+                        self.modelo.Add(sum(variables) <= max_dias)
 
             # Noches consecutivas.
             ventana_n = max_noches + 1
@@ -577,6 +585,14 @@ class OptimizadorCuadrante:
                 self.modelo.AddMinEquality(lado_peor, [na, nd])
                 terminos.append(pesos.adaptacion_vacaciones * lado_peor)
 
+        # (9) Maximizar los días trabajados de quien tenga «maximizar_dias»: se
+        # recompensa cada turno suyo para que llene sus días disponibles, aunque
+        # encadene muchos seguidos. Los topes de fines de semana y de noches siguen
+        # vigentes, así que no hará más findes ni noches de los permitidos.
+        for trabajador in self.trabajadores:
+            if trabajador.maximizar_dias:
+                terminos.append(-RECOMPENSA_MAXIMIZAR_DIAS * turnos_totales[trabajador.id])
+
         self.modelo.Minimize(sum(terminos))
 
     def _restriccion_descansos_agrupados(self) -> None:
@@ -597,6 +613,9 @@ class OptimizadorCuadrante:
 
         dias = self.calendario.dias
         for trabajador in self.trabajadores:
+            # Quien trabaja el máximo de días no exige descanso mínimo agrupado.
+            if trabajador.maximizar_dias:
+                continue
             for i in range(1, len(dias) - 1):
                 dia = dias[i]
                 if not self._disponibilidad[(trabajador.id, dia)]:
