@@ -94,7 +94,11 @@ class PesosObjetivos:
     # Objetivo blando: se intenta, pero cede ante la cobertura y el equilibrio de
     # horas si hiciera falta.
     adaptacion_vacaciones: int = 600
-    tener_en_cuenta_historico: int = 60
+    # Compensación histórica de HORAS y NOCHES entre meses. A 0, cada mes se
+    # equilibra por sí mismo (todos con ~las mismas horas extra), sin arrastrar el
+    # desequilibrio de meses anteriores. Los FESTIVOS se equilibran aparte, de
+    # forma ANUAL (ver «equilibrio_festivos»), y NO se ven afectados por esto.
+    tener_en_cuenta_historico: int = 0
 
 
 @dataclass
