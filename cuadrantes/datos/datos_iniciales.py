@@ -68,11 +68,9 @@ EQUIPO_ACTUAL: list[_PlantillaTrabajador] = [
     _PlantillaTrabajador(
         "LUIS PERALTA ROS", set(_TODOS), set(), puede_hacer_noches=False,
         fines_semana_exactos=1, es_jefe_equipo=True, prioridad_jefe=2,
-        maximizar_dias=True,
         notas="Jefe de equipo. Cualquier puesto de mañana. Nunca noches. Un fin de "
               "semana al mes. F1 de mañana en laborable reservado a jefes. Recibe el "
-              "día extra de MT-F1 cuando el reparto no es par (prioridad mayor). "
-              "Trabaja el máximo de días disponibles (puede encadenar muchos seguidos)."),
+              "día extra de MT-F1 cuando el reparto no es par (prioridad mayor)."),
     _PlantillaTrabajador(
         "MOHAMED AMAR MOHAMED", {Puesto.MO}, {Puesto.F1, Puesto.F2},
         notas="Solo MO de mañana o cualquier puesto de noche. Nunca F1/F2/EX-MT."),
@@ -131,7 +129,8 @@ def sincronizar_equipo(servicio: ServicioCuadrantes) -> dict[str, list[str]]:
             actual.fines_semana_exactos = definicion.fines_semana_exactos
             actual.es_jefe_equipo = definicion.es_jefe_equipo
             actual.prioridad_jefe = definicion.prioridad_jefe
-            actual.maximizar_dias = definicion.maximizar_dias
+            # 'maximizar_dias' NO se sincroniza: es un ajuste manual y excepcional
+            # (por mes) que fija el usuario, no una característica fija del puesto.
             servicio.trabajadores.guardar(actual)
             if cambiado:
                 resultado["reactivados"].append(definicion.nombre)
