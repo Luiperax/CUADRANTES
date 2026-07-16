@@ -56,6 +56,7 @@ class VentanaPrincipal(QtWidgets.QMainWindow):
         accion("📊  Exportar Excel", self.exportar_excel)
         accion("📄  Exportar PDF", self.exportar_pdf)
         accion("📋  Informes", self.exportar_informes)
+        accion("🧾  Facturación", self.exportar_facturacion)
         barra.addSeparator()
         accion("🔄  Actualizar", self.actualizar)
         accion("👥  Trabajadores", self.gestionar_trabajadores)
@@ -391,6 +392,12 @@ class VentanaPrincipal(QtWidgets.QMainWindow):
         if ruta:
             self.servicio.exportar_informes(self.cuadrante_actual, ruta)
             self.indicador.setText(f"Informes exportados: {ruta.name}")
+
+    def exportar_facturacion(self) -> None:
+        ruta = self._pedir_ruta("Exportar facturación", "Excel (*.xlsx)", "_facturacion.xlsx")
+        if ruta:
+            self.servicio.exportar_facturacion(self.cuadrante_actual, ruta)
+            self.indicador.setText(f"Facturación exportada: {ruta.name}")
 
     def copia_seguridad(self) -> None:
         ruta = self.servicio.copia_seguridad()
