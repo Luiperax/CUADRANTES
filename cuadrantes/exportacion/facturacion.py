@@ -72,6 +72,53 @@ def _entrada_salida(turno: Turno, puesto: Puesto) -> tuple[int, int]:
     return 7, 19                 # Mañana 7-19.
 
 
+def construir_datos_facturacion(cuadrante: Cuadrante, trabajadores: dict[int, Trabajador],
+                                calendario: CalendarioMes) -> dict:
+    """Estructura lógica de la facturación (la usan el Excel y la vista en pantalla).
+
+    Devuelve ``{'servicios': [...], 'total_general_dia': [...], 'total_general': ...}``.
+    Cada servicio: ``{'codigo','nombre','empleados','totales_dia','total'}``.
+    Cada empleado: ``{'nombre','celdas':[{entrada,salida,suma,vac,finde}...],'total','dif'}``.
+    """
+    dias = calendario.dias
+    ids = cuadrante.trabajadores_ids or list(trabajadores.keys())
+    servicios = []
+    for puesto, codigo, nombre in _SERVICIOS:
+        empleados = []
+        for tid in ids:
+            if not any((a := cuadrante.obtener(tid, d)) and a.es_trabajo and a.puesto is puesto
+                       for d in dias):
+                continue
+            celdas, total = [], 0
+            for dia in dias:
+                a = cuadrante.obtener(tid, dia)
+                cel = {"entrada": "", "salida": "", "suma": "", "vac": False,
+                       "finde": calendario.es_fin_de_semana(dia)}
+                if a and a.es_trabajo and a.puesto is puesto:
+                    e, s = _entrada_salida(a.turno, puesto)
+                    cel["entrada"], cel["salida"], cel["suma"] = e, s, 12
+                    total += 12
+                elif a and a.ausencia is TipoAusencia.VACACIONES:
+                    cel["entrada"] = cel["salida"] = "V"
+                    cel["vac"] = True
+                celdas.append(cel)
+            nombre_t = trabajadores[tid].nombre if tid in trabajadores else str(tid)
+            empleados.append({"id": tid, "nombre": nombre_t, "celdas": celdas,
+                              "total": total, "dif": total - _COMPUTO})
+        tot_dia = []
+        for dia in dias:
+            h = sum(12 for e in empleados
+                    if (a := cuadrante.obtener(e["id"], dia)) and a.es_trabajo and a.puesto is puesto)
+            tot_dia.append(h)
+        servicios.append({"codigo": codigo, "nombre": nombre, "puesto": puesto,
+                          "empleados": empleados, "totales_dia": tot_dia, "total": sum(tot_dia)})
+    tg = []
+    for dia in dias:
+        h = sum(12 for tid in ids if (a := cuadrante.obtener(tid, dia)) and a.es_trabajo)
+        tg.append(h)
+    return {"servicios": servicios, "total_general_dia": tg, "total_general": sum(tg)}
+
+
 class ExportadorFacturacion:
     """Genera el cuadrante de facturación en Excel, agrupado por servicio."""
 

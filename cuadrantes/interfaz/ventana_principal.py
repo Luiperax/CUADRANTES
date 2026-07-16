@@ -22,6 +22,7 @@ from .graficos import GraficoBarras
 from .panel_configuracion import PanelConfiguracion
 from .tema import PaletaOscura
 from .vista_calendario import VistaCalendario
+from .vista_facturacion import VistaFacturacion
 
 
 class VentanaPrincipal(QtWidgets.QMainWindow):
@@ -138,6 +139,9 @@ class VentanaPrincipal(QtWidgets.QMainWindow):
 
         self.panel_estadisticas = self._crear_panel_estadisticas()
         self.pestanas.addTab(self.panel_estadisticas, "📈 Estadísticas")
+
+        self.vista_facturacion = VistaFacturacion(self.servicio)
+        self.pestanas.addTab(self.vista_facturacion, "🧾 Facturación")
         derecha.addWidget(self.pestanas)
         disposicion.addLayout(derecha)
 
@@ -203,6 +207,7 @@ class VentanaPrincipal(QtWidgets.QMainWindow):
             f"{cuadrante.estado.descripcion}")
         self._actualizar_auditoria()
         self._actualizar_estadisticas()
+        self.vista_facturacion.cargar(cuadrante)
 
     def _actualizar_auditoria(self) -> None:
         if not self.cuadrante_actual:
