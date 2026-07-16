@@ -323,14 +323,16 @@ class ExportadorFacturacion:
         self._cel(hoja, f_ent, 1, emp["nombre"], fuente=_F_NEG, alin=_IZQ)
         self._cel(hoja, f_ent, 2, "HORA DE ENTRADA", fuente=_F_PEQ, alin=_IZQ)
         self._cel(hoja, f_sal, 2, "HORA DE SALIDA", fuente=_F_PEQ, alin=_IZQ)
-        self._cel(hoja, f_sum, 2, "SUMA", fuente=_F_PEQ, alin=_IZQ)
+        self._cel(hoja, f_sum, 2, "SUMA", fuente=_F_PEQ, alin=_IZQ, relleno=_GRIS)
 
         for i, cel in enumerate(emp["celdas"]):
             col = self.col_dia0 + i
             L = self._col(col)
             rel_base = _AZUL if cel["finde"] else None
             rel_ev = _CYAN if cel["vac"] else rel_base
-            rel_sum = _PEACH if cel["suma"] else rel_base
+            # La fila SUMA va SIEMPRE en color (banda continua) para diferenciar a
+            # cada empleado, igual que en el cuadrante de facturación original.
+            rel_sum = _PEACH
             # HORA DE ENTRADA y HORA DE SALIDA son EDITABLES.
             self._cel(hoja, f_ent, col, cel["entrada"], fuente=_F_NEG, relleno=rel_ev)
             self._cel(hoja, f_sal, col, cel["salida"], fuente=_F_NEG, relleno=rel_ev)
@@ -471,12 +473,12 @@ class ExportadorFacturacionPDF:
                     fu[col_d0 + i] = cel["suma"]
                     if cel["vac"]:
                         estilos.append(("BACKGROUND", (col_d0 + i, r), (col_d0 + i, r + 1), cyan))
-                    elif cel["suma"]:
-                        estilos.append(("BACKGROUND", (col_d0 + i, r + 2), (col_d0 + i, r + 2), peach))
                 fu[col_tot] = emp["total"] or ""
                 fu[col_dif] = f"{emp['dif']:.2f}".replace(".", ",")
                 filas += [fe, fs, fu]
                 sombrear_finde(r); sombrear_finde(r + 1)
+                # Fila SUMA: banda peach continua (diferencia a cada empleado).
+                estilos.append(("BACKGROUND", (col_d0, r + 2), (col_d0 + nd - 1, r + 2), peach))
                 estilos += [("SPAN", (0, r), (0, r + 2)), ("ALIGN", (0, r), (1, r + 2), "LEFT"),
                             ("FONTNAME", (0, r), (0, r), "Helvetica-Bold"),
                             ("BACKGROUND", (col_tot, r + 2), (col_tot, r + 2), amar),

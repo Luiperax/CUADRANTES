@@ -188,8 +188,8 @@ class VistaFacturacion(QtWidgets.QWidget):
             rel_ev = _CYAN if cel["vac"] else base
             self.tabla.setItem(f_ent, col_dia0 + i, self._item(cel["entrada"], rel_ev, True))
             self.tabla.setItem(f_sal, col_dia0 + i, self._item(cel["salida"], rel_ev, True))
-            rel_sum = base if cel["vac"] else _PEACH
-            self.tabla.setItem(f_sum, col_dia0 + i, self._item(cel["suma"], rel_sum))
+            # Fila SUMA siempre coloreada (banda) para diferenciar empleados.
+            self.tabla.setItem(f_sum, col_dia0 + i, self._item(cel["suma"], _PEACH))
         self.tabla.setItem(f_ent, col_dif, self._item("HORAS"))
         self.tabla.setItem(f_sal, col_dif, self._item("EXTRAS"))
         self.tabla.setItem(f_sum, col_tot, self._item(emp["total"] or "", _AMAR, True))
