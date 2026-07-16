@@ -310,7 +310,7 @@ class ExportadorFacturacion:
         for dia in self.calendario.dias:
             col = self.col_dia0 + dia - 1
             L = self._col(col)
-            formula = "=" + "+".join(f"{L}{fs}" for fs in filas_suma) if filas_suma else 0
+            formula = "=SUM(" + ",".join(f"{L}{fs}" for fs in filas_suma) + ")" if filas_suma else 0
             self._cel(hoja, fila, col, formula, fuente=_F_NEG, relleno=_AMAR, formato="0;-0;")
         self._cel(hoja, fila, self.col_tot, f"=SUM({c0}{fila}:{c1}{fila})",
                   fuente=_F_NEG, relleno=_AMAR, formato="0.##")
@@ -327,13 +327,19 @@ class ExportadorFacturacion:
 
         for i, cel in enumerate(emp["celdas"]):
             col = self.col_dia0 + i
+            L = self._col(col)
             rel_base = _AZUL if cel["finde"] else None
             rel_ev = _CYAN if cel["vac"] else rel_base
-            rel_sum = rel_base if cel["vac"] else _PEACH
+            rel_sum = _PEACH if cel["suma"] else rel_base
+            # HORA DE ENTRADA y HORA DE SALIDA son EDITABLES.
             self._cel(hoja, f_ent, col, cel["entrada"], fuente=_F_NEG, relleno=rel_ev)
             self._cel(hoja, f_sal, col, cel["salida"], fuente=_F_NEG, relleno=rel_ev)
-            # La celda SUMA (horas de la jornada) es EDITABLE; los totales la suman.
-            self._cel(hoja, f_sum, col, cel["suma"], fuente=_F_PEQ, relleno=rel_sum)
+            # La SUMA se CALCULA a partir de entrada y salida: salida - entrada,
+            # con MOD 24 para las noches que cruzan medianoche (19->7 = 12 h). Al
+            # cambiar la hora de entrada o de salida, la suma y los totales cambian.
+            formula = (f'=IF(AND(ISNUMBER({L}{f_ent}),ISNUMBER({L}{f_sal})),'
+                       f'MOD({L}{f_sal}-{L}{f_ent},24),"")')
+            self._cel(hoja, f_sum, col, formula, fuente=_F_PEQ, relleno=rel_sum, formato="0;-0;")
         # Totales del trabajador con fórmula (se recalculan al editar las horas).
         c0, c1 = self._col(self.col_dia0), self._col(self.col_dia0 + self.n_dias - 1)
         ltot = self._col(self.col_tot)
@@ -355,7 +361,7 @@ class ExportadorFacturacion:
         for dia in self.calendario.dias:
             col = self.col_dia0 + dia - 1
             L = self._col(col)
-            formula = "=" + "+".join(f"{L}{ft}" for ft in filas_total_serv)
+            formula = "=SUM(" + ",".join(f"{L}{ft}" for ft in filas_total_serv) + ")"
             self._cel(hoja, fila, col, formula, fuente=_F_NEG, relleno=_AMAR, formato="0.##")
         self._cel(hoja, fila, self.col_tot, f"=SUM({c0}{fila}:{c1}{fila})",
                   fuente=_F_NEG, relleno=_AMAR, formato="0.##")
