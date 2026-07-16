@@ -173,6 +173,13 @@ class ServicioCuadrantes:
         trab = {t.id: t for t in self.trabajadores.listar()}  # todos, no solo activos
         return ExportadorFacturacion(cuadrante, trab, festivos=festivos).exportar(ruta)
 
+    def exportar_facturacion_pdf(self, cuadrante: Cuadrante, ruta: str | Path) -> Path:
+        """Exporta el cuadrante de facturación a PDF (mismo contenido que el Excel)."""
+        from .exportacion.facturacion import ExportadorFacturacionPDF
+        festivos = self.festivos_del_mes(cuadrante.anio, cuadrante.mes)
+        trab = {t.id: t for t in self.trabajadores.listar()}
+        return ExportadorFacturacionPDF(cuadrante, trab, festivos=festivos).exportar(ruta)
+
     def exportar_informes(self, cuadrante: Cuadrante, ruta: str | Path) -> Path:
         ausencias = self.ausencias.listar_por_mes(cuadrante.anio, cuadrante.mes)
         incidencias = self.incidencias.listar_por_mes(cuadrante.anio, cuadrante.mes)

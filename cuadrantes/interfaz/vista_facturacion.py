@@ -36,11 +36,15 @@ class VistaFacturacion(QtWidgets.QWidget):
         self.titulo.setObjectName("subtitulo")
         barra.addWidget(self.titulo)
         barra.addStretch()
-        self.boton = QtWidgets.QPushButton("📥 Descargar Excel de facturación")
+        self.boton = QtWidgets.QPushButton("📥 Descargar Excel")
         self.boton.setObjectName("primario")
         self.boton.clicked.connect(self._descargar)
         self.boton.setEnabled(False)
         barra.addWidget(self.boton)
+        self.boton_pdf = QtWidgets.QPushButton("📄 Descargar PDF")
+        self.boton_pdf.clicked.connect(self._descargar_pdf)
+        self.boton_pdf.setEnabled(False)
+        barra.addWidget(self.boton_pdf)
         disp.addLayout(barra)
 
         self.tabla = QtWidgets.QTableWidget()
@@ -56,6 +60,7 @@ class VistaFacturacion(QtWidgets.QWidget):
     def cargar(self, cuadrante) -> None:
         self.cuadrante = cuadrante
         self.boton.setEnabled(cuadrante is not None)
+        self.boton_pdf.setEnabled(cuadrante is not None)
         if cuadrante is None:
             self.tabla.clear()
             return
@@ -175,3 +180,14 @@ class VistaFacturacion(QtWidgets.QWidget):
             self.servicio.exportar_facturacion(self.cuadrante, Path(ruta))
             QtWidgets.QMessageBox.information(
                 self, "Facturación", f"Descargado:\n{ruta}")
+
+    def _descargar_pdf(self) -> None:
+        if self.cuadrante is None:
+            return
+        from ..config.constantes import NOMBRES_MES
+        sugerido = f"Facturacion_{NOMBRES_MES[self.cuadrante.mes]}_{self.cuadrante.anio}.pdf"
+        ruta, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self, "Descargar facturación en PDF", sugerido, "PDF (*.pdf)")
+        if ruta:
+            self.servicio.exportar_facturacion_pdf(self.cuadrante, Path(ruta))
+            QtWidgets.QMessageBox.information(self, "Facturación", f"Descargado:\n{ruta}")

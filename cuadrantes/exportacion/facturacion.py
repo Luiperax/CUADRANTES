@@ -300,3 +300,120 @@ class ExportadorFacturacion:
             hoja.column_dimensions[get_column_letter(self.col_dia0 + dia - 1)].width = 3.5
         hoja.column_dimensions[get_column_letter(self.col_tot)].width = 8
         hoja.column_dimensions[get_column_letter(self.col_dif)].width = 9
+
+
+class ExportadorFacturacionPDF:
+    """Genera el cuadrante de facturación en PDF (A3 apaisado), mismo contenido."""
+
+    def __init__(self, cuadrante: Cuadrante, trabajadores: dict[int, Trabajador],
+                 festivos: set | None = None):
+        self.cuadrante = cuadrante
+        self.trabajadores = trabajadores
+        self.calendario = CalendarioMes(cuadrante.anio, cuadrante.mes, festivos or set())
+
+    def exportar(self, ruta: str | Path) -> Path:
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import A3, landscape
+        from reportlab.lib.units import mm
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+        from reportlab.lib.styles import getSampleStyleSheet
+
+        cal = self.calendario
+        dias = cal.dias
+        nd = len(dias)
+        datos = construir_datos_facturacion(self.cuadrante, self.trabajadores, cal)
+
+        azul = colors.HexColor("#9DC3E6"); peach = colors.HexColor("#FCE4D6")
+        amar = colors.HexColor("#FFF2CC"); cyan = colors.HexColor("#00B0F0")
+        gris = colors.HexColor("#D9D9D9")
+
+        filas, estilos = [], []
+        estilos += [("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 4.5),
+                    ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
+                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE")]
+        col_d0 = 2
+        col_tot = col_d0 + nd
+        col_dif = col_tot + 1
+
+        def sombrear_finde(ri):
+            for i, dia in enumerate(dias):
+                if cal.es_fin_de_semana(dia):
+                    estilos.append(("BACKGROUND", (col_d0 + i, ri), (col_d0 + i, ri), azul))
+
+        r = 0
+        for s in datos["servicios"]:
+            # Cabecera de días (letras + números).
+            fila_l = [""] * (col_dif + 1); fila_n = [""] * (col_dif + 1)
+            fila_l[0] = "EMPLEADO"
+            for i, dia in enumerate(dias):
+                fila_l[col_d0 + i] = cal.letra_dia(dia); fila_n[col_d0 + i] = str(dia)
+            fila_n[col_tot] = "TOTALES"
+            filas.append(fila_l); sombrear_finde(r)
+            estilos.append(("BACKGROUND", (0, r), (0, r), gris)); estilos.append(("FONTNAME", (0, r), (-1, r + 1), "Helvetica-Bold")); r += 1
+            filas.append(fila_n); sombrear_finde(r)
+            estilos.append(("BACKGROUND", (col_tot, r), (col_tot, r), gris)); r += 1
+            # Cabecera negra del servicio.
+            filaot = [""] * (col_dif + 1); filaot[0] = s["codigo"]; filaot[1] = s["nombre"]
+            filas.append(filaot)
+            estilos += [("BACKGROUND", (0, r), (-1, r), colors.black),
+                        ("TEXTCOLOR", (0, r), (0, r), colors.red),
+                        ("TEXTCOLOR", (1, r), (1, r), colors.white),
+                        ("FONTNAME", (0, r), (-1, r), "Helvetica-Bold"),
+                        ("SPAN", (1, r), (col_dif, r)), ("ALIGN", (0, r), (1, r), "LEFT")]
+            r += 1
+            for emp in s["empleados"]:
+                fe = [""] * (col_dif + 1); fs = [""] * (col_dif + 1); fu = [""] * (col_dif + 1)
+                fe[0] = emp["nombre"]; fe[1] = "H. ENTRADA"; fs[1] = "H. SALIDA"; fu[1] = "SUMA"
+                fe[col_dif] = "HORAS"; fs[col_dif] = "EXTRAS"
+                for i, cel in enumerate(emp["celdas"]):
+                    fe[col_d0 + i] = cel["entrada"]; fs[col_d0 + i] = cel["salida"]
+                    fu[col_d0 + i] = cel["suma"]
+                    if cel["vac"]:
+                        estilos.append(("BACKGROUND", (col_d0 + i, r), (col_d0 + i, r + 1), cyan))
+                    elif cel["suma"]:
+                        estilos.append(("BACKGROUND", (col_d0 + i, r + 2), (col_d0 + i, r + 2), peach))
+                fu[col_tot] = emp["total"] or ""
+                fu[col_dif] = f"{emp['dif']:.2f}".replace(".", ",")
+                filas += [fe, fs, fu]
+                sombrear_finde(r); sombrear_finde(r + 1)
+                estilos += [("SPAN", (0, r), (0, r + 2)), ("ALIGN", (0, r), (1, r + 2), "LEFT"),
+                            ("FONTNAME", (0, r), (0, r), "Helvetica-Bold"),
+                            ("BACKGROUND", (col_tot, r + 2), (col_tot, r + 2), amar),
+                            ("FONTNAME", (col_tot, r + 2), (col_dif, r + 2), "Helvetica-Bold")]
+                r += 3
+            # Total diario del servicio.
+            ftot = [""] * (col_dif + 1)
+            for i in range(nd):
+                ftot[col_d0 + i] = s["totales_dia"][i] or ""
+            ftot[col_tot] = s["total"]
+            filas.append(ftot)
+            estilos += [("BACKGROUND", (col_d0, r), (col_tot, r), amar),
+                        ("FONTNAME", (0, r), (-1, r), "Helvetica-Bold")]
+            r += 1
+
+        # Total general.
+        fg = [""] * (col_dif + 1); fg[0] = "TOTAL GENERAL"
+        for i in range(nd):
+            fg[col_d0 + i] = datos["total_general_dia"][i]
+        fg[col_tot] = datos["total_general"]
+        filas.append(fg)
+        estilos += [("BACKGROUND", (0, r), (col_tot, r), amar),
+                    ("FONTNAME", (0, r), (-1, r), "Helvetica-Bold"), ("ALIGN", (0, r), (0, r), "LEFT")]
+
+        anchos = [92, 40] + [12] * nd + [24, 28]
+        tabla = Table(filas, colWidths=anchos, repeatRows=0)
+        tabla.setStyle(TableStyle(estilos))
+
+        ruta = Path(ruta); ruta.parent.mkdir(parents=True, exist_ok=True)
+        estilo = getSampleStyleSheet()["Title"]; estilo.fontSize = 12
+        mes = NOMBRES_MES[self.cuadrante.mes].upper()
+        doc = SimpleDocTemplate(str(ruta), pagesize=landscape(A3),
+                                leftMargin=8 * mm, rightMargin=8 * mm,
+                                topMargin=8 * mm, bottomMargin=8 * mm)
+        cab = Paragraph(
+            f"NATURGY &nbsp;·&nbsp; EDIFICIO AVENIDA DE SAN LUIS &nbsp;·&nbsp; "
+            f"FACTURACIÓN {mes} {self.cuadrante.anio} &nbsp;·&nbsp; SIN ARMA", estilo)
+        doc.build([cab, Spacer(1, 4 * mm), tabla])
+        return ruta

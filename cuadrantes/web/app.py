@@ -192,6 +192,9 @@ def crear_app(ruta_bd: str = _RUTA_BD) -> FastAPI:
         elif formato == "facturacion":
             ruta = srv.exportar_facturacion(cuad, tmp / f"{nombre}_facturacion.xlsx")
             tipo = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        elif formato == "facturacion_pdf":
+            ruta = srv.exportar_facturacion_pdf(cuad, tmp / f"{nombre}_facturacion.pdf")
+            tipo = "application/pdf"
         else:
             return RedirectResponse(f"/cuadrante/{cuadrante_id}", status_code=303)
         datos = ruta.read_bytes()
