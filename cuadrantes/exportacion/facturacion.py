@@ -72,6 +72,30 @@ def _entrada_salida(turno: Turno, puesto: Puesto) -> tuple[int, int]:
     return 7, 19                 # Mañana 7-19.
 
 
+def rangos_vacaciones(cuadrante: Cuadrante, trabajadores: dict[int, Trabajador],
+                      calendario: CalendarioMes) -> list[tuple[str, int, int]]:
+    """Devuelve (nombre, día_inicio, día_fin) de cada periodo de vacaciones del mes."""
+    res = []
+    ids = cuadrante.trabajadores_ids or list(trabajadores.keys())
+    for tid in ids:
+        vac = [d for d in calendario.dias
+               if (a := cuadrante.obtener(tid, d)) and a.ausencia is TipoAusencia.VACACIONES]
+        if not vac:
+            continue
+        ini = prev = vac[0]
+        rangos = []
+        for d in vac[1:]:
+            if d == prev + 1:
+                prev = d
+            else:
+                rangos.append((ini, prev)); ini = prev = d
+        rangos.append((ini, prev))
+        nombre = trabajadores[tid].nombre if tid in trabajadores else str(tid)
+        for a, b in rangos:
+            res.append((nombre, a, b))
+    return res
+
+
 def construir_datos_facturacion(cuadrante: Cuadrante, trabajadores: dict[int, Trabajador],
                                 calendario: CalendarioMes) -> dict:
     """Estructura lógica de la facturación (la usan el Excel y la vista en pantalla).
@@ -143,10 +167,13 @@ class ExportadorFacturacion:
         hoja.page_setup.fitToHeight = 0
 
         fila = self._cabecera(hoja)
-        for puesto, codigo, nombre in _SERVICIOS:
+        n = len(_SERVICIOS)
+        for i, (puesto, codigo, nombre) in enumerate(_SERVICIOS):
             fila = self._bloque_servicio(hoja, fila, puesto, codigo, nombre)
-            fila += 1
-        self._total_general(hoja, fila)
+            if i < n - 1:
+                fila += 1                 # separación solo ENTRE servicios
+        fila = self._total_general(hoja, fila)   # total pegado al último servicio
+        self._pie(hoja, fila)
         self._anchos(hoja)
 
         ruta = Path(ruta)
@@ -305,7 +332,7 @@ class ExportadorFacturacion:
                   fuente=_F_NEG, borde=False)
         return f_sum + 1
 
-    def _total_general(self, hoja, fila) -> None:
+    def _total_general(self, hoja, fila) -> int:
         self._cel(hoja, fila, 1, "TOTAL GENERAL", fuente=_F_NEG, relleno=_AMAR, alin=_IZQ)
         self._cel(hoja, fila, 2, "", relleno=_AMAR)
         total_mes = 0
@@ -319,6 +346,32 @@ class ExportadorFacturacion:
             total_mes += horas
             self._cel(hoja, fila, col, horas, fuente=_F_NEG, relleno=_AMAR)
         self._cel(hoja, fila, self.col_tot, total_mes, fuente=_F_NEG, relleno=_AMAR)
+        self._cel(hoja, fila, self.col_dif, "", borde=False)
+        return fila + 1
+
+    def _pie(self, hoja, fila) -> None:
+        """Leyenda de códigos de servicio (OT) y notas de vacaciones, como el original."""
+        mes = NOMBRES_MES[self.cuadrante.mes]
+        fila += 2
+        self._cel(hoja, fila, 1, "DETALLE DE LOS SERVICIOS (OT)", fuente=_F_NEG,
+                  borde=False, alin=_IZQ)
+        fila += 1
+        rojo = Font(name="Arial", size=8, bold=True, color="FF0000")
+        for puesto, codigo, nombre in _SERVICIOS:
+            self._cel(hoja, fila, 1, codigo, fuente=rojo, borde=False, alin=_IZQ)
+            hoja.merge_cells(start_row=fila, start_column=2, end_row=fila, end_column=14)
+            self._cel(hoja, fila, 2, f"esta OT corresponde a {nombre}",
+                      fuente=_F_NORM, borde=False, alin=_IZQ)
+            fila += 1
+        vacs = rangos_vacaciones(self.cuadrante, self.trabajadores, self.calendario)
+        if vacs:
+            fila += 1
+            for nombre, ini, fin in vacs:
+                hoja.merge_cells(start_row=fila, start_column=1, end_row=fila, end_column=16)
+                texto = (f"La VS {nombre} disfruta de vacaciones del {ini} al {fin} "
+                         f"de {mes}, ambos inclusive.")
+                self._cel(hoja, fila, 1, texto, fuente=_F_NORM, borde=False, alin=_IZQ)
+                fila += 1
 
     def _anchos(self, hoja) -> None:
         hoja.column_dimensions["A"].width = 28
@@ -466,5 +519,21 @@ class ExportadorFacturacionPDF:
         doc = SimpleDocTemplate(str(ruta), pagesize=landscape(A3),
                                 leftMargin=8 * mm, rightMargin=8 * mm,
                                 topMargin=8 * mm, bottomMargin=8 * mm)
-        doc.build([htabla, Spacer(1, 4 * mm), tabla])
+
+        from reportlab.lib.styles import ParagraphStyle
+        p_txt = ParagraphStyle("pie", fontName="Helvetica", fontSize=7.5, leading=10)
+        p_tit = ParagraphStyle("pietit", fontName="Helvetica-Bold", fontSize=8, leading=11)
+        elementos = [htabla, Spacer(1, 4 * mm), tabla, Spacer(1, 5 * mm),
+                     Paragraph("DETALLE DE LOS SERVICIOS (OT)", p_tit)]
+        for _p, codigo, nombre in _SERVICIOS:
+            elementos.append(Paragraph(f"<b>{codigo}</b> — esta OT corresponde a {nombre}", p_txt))
+        vacs = rangos_vacaciones(self.cuadrante, self.trabajadores, cal)
+        if vacs:
+            elementos.append(Spacer(1, 3 * mm))
+            mes_min = NOMBRES_MES[self.cuadrante.mes]
+            for nombre, ini, fin in vacs:
+                elementos.append(Paragraph(
+                    f"La VS {nombre} disfruta de vacaciones del {ini} al {fin} "
+                    f"de {mes_min}, ambos inclusive.", p_txt))
+        doc.build(elementos)
         return ruta

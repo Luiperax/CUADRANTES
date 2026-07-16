@@ -11,7 +11,7 @@ from pathlib import Path
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..dominio.calendario import CalendarioMes
-from ..exportacion.facturacion import construir_datos_facturacion
+from ..exportacion.facturacion import _SERVICIOS, construir_datos_facturacion, rangos_vacaciones
 
 _AZUL = QtGui.QColor("#9DC3E6")
 _PEACH = QtGui.QColor("#FCE4D6")
@@ -95,11 +95,15 @@ class VistaFacturacion(QtWidgets.QWidget):
         col_dif = col_tot + 1
         ncols = col_dif + 1
 
+        vacs = rangos_vacaciones(cuad, trab, cal)
         # Nº de filas: por servicio -> 1 cabecera días + 1 cabecera OT + 3*emp + 1 total.
         filas = 0
         for s in datos["servicios"]:
             filas += 2 + len(s["empleados"]) * 3 + 1
         filas += 1  # total general
+        filas += 1 + len(_SERVICIOS)          # pie: título + códigos OT
+        if vacs:
+            filas += 1 + len(vacs)            # separador + notas de vacaciones
         self.tabla.clear()
         self.tabla.setColumnCount(ncols)
         self.tabla.setRowCount(filas)
@@ -132,6 +136,31 @@ class VistaFacturacion(QtWidgets.QWidget):
             self.tabla.setItem(r, col_dia0 + i, self._item(datos["total_general_dia"][i], _AMAR, True))
         self.tabla.setItem(r, col_tot, self._item(datos["total_general"], _AMAR, True))
         self.tabla.setItem(r, col_dif, self._item(""))
+        r += 1
+
+        # Pie: leyenda de servicios (OT) y notas de vacaciones.
+        def izq(texto, negrita=False, color=None):
+            it = self._item(texto, None, negrita, color)
+            it.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+            return it
+
+        self.tabla.setItem(r, 0, izq("DETALLE DE LOS SERVICIOS (OT)", True))
+        self.tabla.setSpan(r, 0, 1, ncols); r += 1
+        from ..config.constantes import Puesto  # noqa: F401 (import local ligero)
+        for _p, codigo, nombre in _SERVICIOS:
+            self.tabla.setItem(r, 0, izq(codigo, True, _ROJO))
+            self.tabla.setItem(r, 1, izq(f"esta OT corresponde a {nombre}"))
+            self.tabla.setSpan(r, 1, 1, ncols - 1)
+            r += 1
+        if vacs:
+            from ..config.constantes import NOMBRES_MES
+            mes_min = NOMBRES_MES[cuad.mes]
+            for nombre, ini, fin in vacs:
+                self.tabla.setItem(r, 0, izq(
+                    f"La VS {nombre} disfruta de vacaciones del {ini} al {fin} "
+                    f"de {mes_min}, ambos inclusive."))
+                self.tabla.setSpan(r, 0, 1, ncols)
+                r += 1
 
         self.tabla.resizeColumnsToContents()
         self.tabla.setColumnWidth(0, 190)
