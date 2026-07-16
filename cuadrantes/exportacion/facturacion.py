@@ -28,12 +28,37 @@ from ..datos.modelos import Cuadrante, Trabajador
 from ..dominio.calendario import CalendarioMes
 
 # Servicios (OT) en el orden en que aparecen en la hoja del cliente.
+# Clave interna, código de OT y nombre. La asignación de cada turno a un servicio
+# NO es directa por puesto: depende del turno, el puesto y si es día laborable o
+# fin de semana (ver _servicio_de), tal como en la facturación real del cliente.
 _SERVICIOS = [
-    (Puesto.F1, "01CE000579287511", "RECEPCIÓN 24 H"),
-    (Puesto.F2, "01CE000579287521", "GARITA 24 H VSA"),
-    (Puesto.MO, "01CE000579287531", "MÓVIL/RESPONSABLE VSA DE 7 a 19"),
-    (Puesto.EX, "01CE000579287541", "EXPLANADA VSA de 6 a 18"),
+    ("RECEPCION", "01CE000579287511", "RECEPCIÓN 24 H"),
+    ("GARITA", "01CE000579287521", "GARITA 24 H VSA"),
+    ("MOVIL", "01CE000579287531", "MÓVIL/RESPONSABLE VSA DE 7 a 19"),
+    ("EXPLANADA", "01CE000579287541", "EXPLANADA VSA de 6 a 18"),
 ]
+
+
+def _servicio_de(turno: Turno, puesto: Puesto, es_finde: bool) -> str:
+    """Servicio (OT) al que se factura un turno-puesto concreto.
+
+    * EX               -> EXPLANADA (6-18).
+    * F2 (MT o TN)     -> GARITA 24 H.
+    * MO               -> RECEPCIÓN (cubre el día laborable de Recepción).
+    * F1 de noche      -> RECEPCIÓN.
+    * F1 de mañana     -> MÓVIL/RESPONSABLE si es laborable (lo hacen Luis y
+                          Fernando); en fin de semana va a RECEPCIÓN.
+    """
+    if puesto is Puesto.EX:
+        return "EXPLANADA"
+    if puesto is Puesto.F2:
+        return "GARITA"
+    if puesto is Puesto.MO:
+        return "RECEPCION"
+    # Puesto F1
+    if turno is Turno.NOCHE:
+        return "RECEPCION"
+    return "RECEPCION" if es_finde else "MOVIL"
 
 _COMPUTO = 162.0
 
@@ -106,20 +131,27 @@ def construir_datos_facturacion(cuadrante: Cuadrante, trabajadores: dict[int, Tr
     """
     dias = calendario.dias
     ids = cuadrante.trabajadores_ids or list(trabajadores.keys())
+
+    def serv_dia(tid, dia):
+        """Servicio de la asignación de un trabajador ese día, o None."""
+        a = cuadrante.obtener(tid, dia)
+        if a and a.es_trabajo:
+            return _servicio_de(a.turno, a.puesto, calendario.es_fin_de_semana(dia))
+        return None
+
     servicios = []
-    for puesto, codigo, nombre in _SERVICIOS:
+    for clave, codigo, nombre in _SERVICIOS:
         empleados = []
         for tid in ids:
-            if not any((a := cuadrante.obtener(tid, d)) and a.es_trabajo and a.puesto is puesto
-                       for d in dias):
+            if not any(serv_dia(tid, d) == clave for d in dias):
                 continue
             celdas, total = [], 0
             for dia in dias:
                 a = cuadrante.obtener(tid, dia)
                 cel = {"entrada": "", "salida": "", "suma": "", "vac": False,
                        "finde": calendario.es_fin_de_semana(dia)}
-                if a and a.es_trabajo and a.puesto is puesto:
-                    e, s = _entrada_salida(a.turno, puesto)
+                if serv_dia(tid, dia) == clave:
+                    e, s = _entrada_salida(a.turno, a.puesto)
                     cel["entrada"], cel["salida"], cel["suma"] = e, s, 12
                     total += 12
                 elif a and a.ausencia is TipoAusencia.VACACIONES:
@@ -129,12 +161,8 @@ def construir_datos_facturacion(cuadrante: Cuadrante, trabajadores: dict[int, Tr
             nombre_t = trabajadores[tid].nombre if tid in trabajadores else str(tid)
             empleados.append({"id": tid, "nombre": nombre_t, "celdas": celdas,
                               "total": total, "dif": total - _COMPUTO})
-        tot_dia = []
-        for dia in dias:
-            h = sum(12 for e in empleados
-                    if (a := cuadrante.obtener(e["id"], dia)) and a.es_trabajo and a.puesto is puesto)
-            tot_dia.append(h)
-        servicios.append({"codigo": codigo, "nombre": nombre, "puesto": puesto,
+        tot_dia = [sum(12 for e in empleados if serv_dia(e["id"], dia) == clave) for dia in dias]
+        servicios.append({"codigo": codigo, "nombre": nombre, "clave": clave,
                           "empleados": empleados, "totales_dia": tot_dia, "total": sum(tot_dia)})
     tg = []
     for dia in dias:
@@ -151,6 +179,7 @@ class ExportadorFacturacion:
         self.cuadrante = cuadrante
         self.trabajadores = trabajadores
         self.calendario = CalendarioMes(cuadrante.anio, cuadrante.mes, festivos or set())
+        self.datos = construir_datos_facturacion(cuadrante, trabajadores, self.calendario)
         self.n_dias = self.calendario.numero_dias
         self.col_dia0 = 3                       # primera columna de día (C)
         self.col_tot = self.col_dia0 + self.n_dias      # TOTALES
@@ -167,10 +196,10 @@ class ExportadorFacturacion:
         hoja.page_setup.fitToHeight = 0
 
         fila = self._cabecera(hoja)
-        n = len(_SERVICIOS)
-        for i, (puesto, codigo, nombre) in enumerate(_SERVICIOS):
-            fila = self._bloque_servicio(hoja, fila, puesto, codigo, nombre)
-            if i < n - 1:
+        servicios = self.datos["servicios"]
+        for i, serv in enumerate(servicios):
+            fila = self._bloque_servicio(hoja, fila, serv)
+            if i < len(servicios) - 1:
                 fila += 1                 # separación solo ENTRE servicios
         fila = self._total_general(hoja, fila)   # total pegado al último servicio
         self._pie(hoja, fila)
@@ -250,102 +279,61 @@ class ExportadorFacturacion:
             self._cel(hoja, fila + 1, col, dia, fuente=_F_NEG, relleno=rel)
         return fila + 2
 
-    def _asignacion(self, tid, dia):
-        return self.cuadrante.obtener(tid, dia)
-
-    def _empleados_de(self, puesto: Puesto) -> list[int]:
-        """Ids de trabajadores con al menos un turno en ese puesto, por orden de plantilla."""
-        ids = self.cuadrante.trabajadores_ids or list(self.trabajadores.keys())
-        con_puesto = []
-        for tid in ids:
-            for dia in self.calendario.dias:
-                a = self._asignacion(tid, dia)
-                if a and a.es_trabajo and a.puesto is puesto:
-                    con_puesto.append(tid)
-                    break
-        return con_puesto
-
-    def _bloque_servicio(self, hoja, fila, puesto, codigo, nombre) -> int:
+    def _bloque_servicio(self, hoja, fila, serv) -> int:
         fila = self._fila_dias(hoja, fila)
         # Cabecera negra del servicio (código en rojo + nombre en blanco).
-        self._cel(hoja, fila, 1, codigo, fuente=_F_OTCOD, relleno=_NEGRO, alin=_IZQ)
-        c = self._cel(hoja, fila, 2, nombre, fuente=_F_OT, relleno=_NEGRO, alin=_IZQ)
+        self._cel(hoja, fila, 1, serv["codigo"], fuente=_F_OTCOD, relleno=_NEGRO, alin=_IZQ)
+        self._cel(hoja, fila, 2, serv["nombre"], fuente=_F_OT, relleno=_NEGRO, alin=_IZQ)
         for col in range(3, self.col_dif + 1):
             self._cel(hoja, fila, col, "", relleno=_NEGRO)
         fila += 1
 
-        empleados = self._empleados_de(puesto)
-        for tid in empleados:
-            fila = self._filas_empleado(hoja, fila, tid, puesto)
+        for emp in serv["empleados"]:
+            fila = self._filas_empleado(hoja, fila, emp)
 
         # Total diario del servicio.
         self._cel(hoja, fila, 1, "", borde=False)
         self._cel(hoja, fila, 2, "", borde=False)
-        total_serv = 0
-        for dia in self.calendario.dias:
+        for i, dia in enumerate(self.calendario.dias):
             col = self.col_dia0 + dia - 1
-            horas = 0
-            for tid in empleados:
-                a = self._asignacion(tid, dia)
-                if a and a.es_trabajo and a.puesto is puesto:
-                    horas += 12
-            total_serv += horas
-            self._cel(hoja, fila, col, horas or "", fuente=_F_NEG, relleno=_AMAR)
-        self._cel(hoja, fila, self.col_tot, total_serv, fuente=_F_NEG, relleno=_AMAR)
+            self._cel(hoja, fila, col, serv["totales_dia"][i] or "", fuente=_F_NEG, relleno=_AMAR)
+        self._cel(hoja, fila, self.col_tot, serv["total"], fuente=_F_NEG, relleno=_AMAR)
         return fila + 1
 
-    def _filas_empleado(self, hoja, fila, tid, puesto) -> int:
-        nombre = self.trabajadores[tid].nombre if tid in self.trabajadores else str(tid)
+    def _filas_empleado(self, hoja, fila, emp) -> int:
         f_ent, f_sal, f_sum = fila, fila + 1, fila + 2
         # Nombre combinado sobre las tres filas.
         hoja.merge_cells(start_row=f_ent, start_column=1, end_row=f_sum, end_column=1)
-        self._cel(hoja, f_ent, 1, nombre, fuente=_F_NEG, alin=_IZQ)
+        self._cel(hoja, f_ent, 1, emp["nombre"], fuente=_F_NEG, alin=_IZQ)
         self._cel(hoja, f_ent, 2, "HORA DE ENTRADA", fuente=_F_PEQ, alin=_IZQ)
         self._cel(hoja, f_sal, 2, "HORA DE SALIDA", fuente=_F_PEQ, alin=_IZQ)
         self._cel(hoja, f_sum, 2, "SUMA", fuente=_F_PEQ, alin=_IZQ)
 
-        total = 0
-        for dia in self.calendario.dias:
-            col = self.col_dia0 + dia - 1
-            finde = self.calendario.es_fin_de_semana(dia)
-            rel_base = _AZUL if finde else None
-            a = self._asignacion(tid, dia)
-            ent = sal = suma = ""
-            rel_ent = rel_sal = rel_base
-            rel_sum = _PEACH
-            if a and a.es_trabajo and a.puesto is puesto:
-                e, s = _entrada_salida(a.turno, puesto)
-                ent, sal, suma = e, s, 12
-                total += 12
-            elif a and a.ausencia is TipoAusencia.VACACIONES:
-                ent = sal = "V"
-                rel_ent = rel_sal = _CYAN
-                rel_sum = rel_base
-            self._cel(hoja, f_ent, col, ent, fuente=_F_NEG, relleno=rel_ent)
-            self._cel(hoja, f_sal, col, sal, fuente=_F_NEG, relleno=rel_sal)
-            self._cel(hoja, f_sum, col, suma, fuente=_F_PEQ, relleno=rel_sum)
+        for i, cel in enumerate(emp["celdas"]):
+            col = self.col_dia0 + i
+            rel_base = _AZUL if cel["finde"] else None
+            rel_ev = _CYAN if cel["vac"] else rel_base
+            rel_sum = rel_base if cel["vac"] else _PEACH
+            self._cel(hoja, f_ent, col, cel["entrada"], fuente=_F_NEG, relleno=rel_ev)
+            self._cel(hoja, f_sal, col, cel["salida"], fuente=_F_NEG, relleno=rel_ev)
+            self._cel(hoja, f_sum, col, cel["suma"], fuente=_F_PEQ, relleno=rel_sum)
         # Etiquetas y totales a la derecha.
         self._cel(hoja, f_ent, self.col_dif, "HORAS", fuente=_F_PEQ, borde=False)
         self._cel(hoja, f_sal, self.col_dif, "EXTRAS", fuente=_F_PEQ, borde=False)
-        self._cel(hoja, f_sum, self.col_tot, total or "", fuente=_F_NEG, relleno=_AMAR)
-        self._cel(hoja, f_sum, self.col_dif, f"{total - _COMPUTO:.2f}".replace(".", ","),
+        self._cel(hoja, f_sum, self.col_tot, emp["total"] or "", fuente=_F_NEG, relleno=_AMAR)
+        self._cel(hoja, f_sum, self.col_dif, f"{emp['dif']:.2f}".replace(".", ","),
                   fuente=_F_NEG, borde=False)
         return f_sum + 1
 
     def _total_general(self, hoja, fila) -> int:
         self._cel(hoja, fila, 1, "TOTAL GENERAL", fuente=_F_NEG, relleno=_AMAR, alin=_IZQ)
         self._cel(hoja, fila, 2, "", relleno=_AMAR)
-        total_mes = 0
-        for dia in self.calendario.dias:
+        for i, dia in enumerate(self.calendario.dias):
             col = self.col_dia0 + dia - 1
-            horas = 0
-            for tid in (self.cuadrante.trabajadores_ids or self.trabajadores.keys()):
-                a = self._asignacion(tid, dia)
-                if a and a.es_trabajo:
-                    horas += 12
-            total_mes += horas
-            self._cel(hoja, fila, col, horas, fuente=_F_NEG, relleno=_AMAR)
-        self._cel(hoja, fila, self.col_tot, total_mes, fuente=_F_NEG, relleno=_AMAR)
+            self._cel(hoja, fila, col, self.datos["total_general_dia"][i],
+                      fuente=_F_NEG, relleno=_AMAR)
+        self._cel(hoja, fila, self.col_tot, self.datos["total_general"],
+                  fuente=_F_NEG, relleno=_AMAR)
         self._cel(hoja, fila, self.col_dif, "", borde=False)
         return fila + 1
 
