@@ -167,21 +167,48 @@ class ExportadorFacturacion:
             c.fill = _relleno(relleno)
         return c
 
+    def _caja(self, hoja, r1, c1, r2, c2, texto="", fuente=_F_NORM, relleno=None, alin=_CENTRO):
+        """Escribe una caja combinada con borde en todo el rango."""
+        if (r1, c1) != (r2, c2):
+            hoja.merge_cells(start_row=r1, start_column=c1, end_row=r2, end_column=c2)
+        self._cel(hoja, r1, c1, texto, fuente=fuente, relleno=relleno, alin=alin)
+        for r in range(r1, r2 + 1):
+            for c in range(c1, c2 + 1):
+                hoja.cell(row=r, column=c).border = _BORDE
+
     def _cabecera(self, hoja) -> int:
         mes = NOMBRES_MES[self.cuadrante.mes].upper()
-        self._cel(hoja, 1, 1, "OK - REPUESTA", fuente=_F_PEQ, borde=False)
-        self._cel(hoja, 1, self.col_tot, "Código Documento", fuente=_F_PEQ, borde=False)
-        self._cel(hoja, 2, self.col_tot, "MD-ES-SISVG-VA-03", fuente=_F_PEQ, borde=False)
-        self._cel(hoja, 3, self.col_tot, "Edición: 01", fuente=_F_PEQ, borde=False)
-        # Bloque CLIENTE / CENTRO / MES.
-        self._cel(hoja, 2, 3, "CLIENTE:", fuente=_F_NEG, relleno=_GRIS)
-        self._cel(hoja, 2, 5, "NATURGY", fuente=_F_TIT)
-        self._cel(hoja, 3, 3, "CENTRO:", fuente=_F_NEG, relleno=_GRIS)
-        self._cel(hoja, 3, 5, "EDIFICIO AVENIDA DE SAN LUIS", fuente=_F_NEG)
-        self._cel(hoja, 2, 9, "CD. CENTRO:", fuente=_F_NEG, relleno=_GRIS)
-        self._cel(hoja, 3, 9, "MES:", fuente=_F_NEG, relleno=_GRIS)
-        self._cel(hoja, 3, 11, f"{mes} {self.cuadrante.anio}", fuente=_F_TIT)
-        self._cel(hoja, 4, 9, "SIN ARMA", fuente=_F_NEG, relleno=_GRIS)
+        izq = Alignment(horizontal="left", vertical="center")
+        # Alturas de fila para que la cabecera respire.
+        for r in (2, 3, 4):
+            hoja.row_dimensions[r].height = 22
+
+        # Fila 1: título del documento y referencia (arriba a la derecha).
+        self._cel(hoja, 1, 1, "OK - REPUESTA", fuente=_F_PEQ, borde=False, alin=izq)
+        self._caja(hoja, 1, self.col_tot - 3, 1, self.col_dif,
+                   "Código Documento: MD-ES-SISVG-VA-03  ·  Edición: 01",
+                   fuente=_F_PEQ, alin=_CENTRO)
+
+        # Etiquetas (columna A) + valores (cajas combinadas amplias y legibles).
+        et = Font(name="Arial", size=9, bold=True)
+        val_g = Font(name="Arial", size=13, bold=True)   # NATURGY, MES
+        val_m = Font(name="Arial", size=10, bold=True)    # centro
+        # Columnas: A=etiqueta izq; B..M=valor izq; N..P=etiqueta der; Q..T=valor der.
+        c_val1a, c_val1b = 2, 13
+        c_lab2a, c_lab2b = 14, 17
+        c_val2a, c_val2b = 18, 22
+
+        self._caja(hoja, 2, 1, 2, 1, "CLIENTE:", fuente=et, relleno=_GRIS, alin=izq)
+        self._caja(hoja, 2, c_val1a, 2, c_val1b, "NATURGY", fuente=val_g)
+        self._caja(hoja, 2, c_lab2a, 2, c_lab2b, "CD. CENTRO:", fuente=et, relleno=_GRIS, alin=izq)
+        self._caja(hoja, 2, c_val2a, 2, c_val2b, "", fuente=val_m)
+
+        self._caja(hoja, 3, 1, 3, 1, "CENTRO:", fuente=et, relleno=_GRIS, alin=izq)
+        self._caja(hoja, 3, c_val1a, 3, c_val1b, "EDIFICIO AVENIDA DE SAN LUIS", fuente=val_m)
+        self._caja(hoja, 3, c_lab2a, 3, c_lab2b, "MES:", fuente=et, relleno=_GRIS, alin=izq)
+        self._caja(hoja, 3, c_val2a, 3, c_val2b, f"{mes} {self.cuadrante.anio}", fuente=val_g)
+
+        self._caja(hoja, 4, c_lab2a, 4, c_val2b, "SIN ARMA", fuente=et, relleno=_GRIS)
         return 6
 
     def _fila_dias(self, hoja, fila) -> int:
@@ -407,13 +434,37 @@ class ExportadorFacturacionPDF:
         tabla.setStyle(TableStyle(estilos))
 
         ruta = Path(ruta); ruta.parent.mkdir(parents=True, exist_ok=True)
-        estilo = getSampleStyleSheet()["Title"]; estilo.fontSize = 12
         mes = NOMBRES_MES[self.cuadrante.mes].upper()
+
+        # Cabecera en cajas (CLIENTE / CENTRO / MES), legible y como el original.
+        hfilas = [
+            ["CLIENTE:", "NATURGY", "CD. CENTRO:", "", "Código Documento:\nMD-ES-SISVG-VA-03 · Ed. 01"],
+            ["CENTRO:", "EDIFICIO AVENIDA DE SAN LUIS", "MES:", f"{mes} {self.cuadrante.anio}", ""],
+            ["", "", "SIN ARMA", "", ""],
+        ]
+        htabla = Table(hfilas, colWidths=[80, 250, 80, 130, 170], rowHeights=[20, 20, 18])
+        htabla.setStyle(TableStyle([
+            ("BOX", (0, 0), (3, 2), 0.6, colors.black),
+            ("GRID", (0, 0), (3, 2), 0.4, colors.grey),
+            ("BACKGROUND", (0, 0), (0, 1), gris),
+            ("BACKGROUND", (2, 0), (2, 2), gris),
+            ("SPAN", (2, 2), (3, 2)),        # SIN ARMA
+            ("SPAN", (4, 0), (4, 2)),        # referencia
+            ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("FONTSIZE", (1, 0), (1, 0), 14),   # NATURGY
+            ("FONTSIZE", (3, 1), (3, 1), 14),   # MES valor
+            ("FONTSIZE", (1, 1), (1, 1), 10),   # centro
+            ("FONTSIZE", (4, 0), (4, 0), 6.5), ("FONTNAME", (4, 0), (4, 0), "Helvetica"),
+            ("ALIGN", (1, 0), (1, 1), "CENTER"), ("ALIGN", (3, 1), (3, 1), "CENTER"),
+            ("ALIGN", (2, 2), (3, 2), "CENTER"), ("ALIGN", (4, 0), (4, 0), "CENTER"),
+            ("ALIGN", (0, 0), (0, 1), "LEFT"), ("ALIGN", (2, 0), (2, 1), "LEFT"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LINEBELOW", (4, 0), (4, 2), 0, colors.white),
+            ("LINEAFTER", (3, 0), (3, 2), 0, colors.white),
+        ]))
         doc = SimpleDocTemplate(str(ruta), pagesize=landscape(A3),
                                 leftMargin=8 * mm, rightMargin=8 * mm,
                                 topMargin=8 * mm, bottomMargin=8 * mm)
-        cab = Paragraph(
-            f"NATURGY &nbsp;·&nbsp; EDIFICIO AVENIDA DE SAN LUIS &nbsp;·&nbsp; "
-            f"FACTURACIÓN {mes} {self.cuadrante.anio} &nbsp;·&nbsp; SIN ARMA", estilo)
-        doc.build([cab, Spacer(1, 4 * mm), tabla])
+        doc.build([htabla, Spacer(1, 4 * mm), tabla])
         return ruta
