@@ -197,11 +197,13 @@ class ExportadorFacturacion:
 
         fila = self._cabecera(hoja)
         servicios = self.datos["servicios"]
+        filas_total_serv = []
         for i, serv in enumerate(servicios):
-            fila = self._bloque_servicio(hoja, fila, serv)
+            fila, fila_tot = self._bloque_servicio(hoja, fila, serv)
+            filas_total_serv.append(fila_tot)
             if i < len(servicios) - 1:
                 fila += 1                 # separación solo ENTRE servicios
-        fila = self._total_general(hoja, fila)   # total pegado al último servicio
+        fila = self._total_general(hoja, fila, filas_total_serv)
         self._pie(hoja, fila)
         self._anchos(hoja)
 
@@ -212,11 +214,13 @@ class ExportadorFacturacion:
 
     # ------------------------------------------------------------------
     def _cel(self, hoja, fila, col, valor="", fuente=_F_NORM, relleno=None,
-             alin=_CENTRO, borde=True):
+             alin=_CENTRO, borde=True, formato=None):
         c = hoja.cell(row=fila, column=col, value=valor)
         c.font = fuente
         c.alignment = alin
         c.protection = _EDIT
+        if formato:
+            c.number_format = formato
         if borde:
             c.border = _BORDE
         if relleno:
@@ -279,7 +283,11 @@ class ExportadorFacturacion:
             self._cel(hoja, fila + 1, col, dia, fuente=_F_NEG, relleno=rel)
         return fila + 2
 
-    def _bloque_servicio(self, hoja, fila, serv) -> int:
+    def _col(self, c):
+        return get_column_letter(c)
+
+    def _bloque_servicio(self, hoja, fila, serv):
+        """Escribe un servicio. Devuelve (fila_siguiente, fila_total_del_servicio)."""
         fila = self._fila_dias(hoja, fila)
         # Cabecera negra del servicio (código en rojo + nombre en blanco).
         self._cel(hoja, fila, 1, serv["codigo"], fuente=_F_OTCOD, relleno=_NEGRO, alin=_IZQ)
@@ -288,17 +296,25 @@ class ExportadorFacturacion:
             self._cel(hoja, fila, col, "", relleno=_NEGRO)
         fila += 1
 
+        filas_suma = []
         for emp in serv["empleados"]:
+            f_sum = fila + 2
             fila = self._filas_empleado(hoja, fila, emp)
+            filas_suma.append(f_sum)
 
-        # Total diario del servicio.
+        # Total diario del servicio: suma (con fórmula) de las celdas SUMA de la
+        # columna. Así, al editar horas, el total del servicio se recalcula solo.
+        c0, c1 = self._col(self.col_dia0), self._col(self.col_dia0 + self.n_dias - 1)
         self._cel(hoja, fila, 1, "", borde=False)
         self._cel(hoja, fila, 2, "", borde=False)
-        for i, dia in enumerate(self.calendario.dias):
+        for dia in self.calendario.dias:
             col = self.col_dia0 + dia - 1
-            self._cel(hoja, fila, col, serv["totales_dia"][i] or "", fuente=_F_NEG, relleno=_AMAR)
-        self._cel(hoja, fila, self.col_tot, serv["total"], fuente=_F_NEG, relleno=_AMAR)
-        return fila + 1
+            L = self._col(col)
+            formula = "=" + "+".join(f"{L}{fs}" for fs in filas_suma) if filas_suma else 0
+            self._cel(hoja, fila, col, formula, fuente=_F_NEG, relleno=_AMAR, formato="0;-0;")
+        self._cel(hoja, fila, self.col_tot, f"=SUM({c0}{fila}:{c1}{fila})",
+                  fuente=_F_NEG, relleno=_AMAR, formato="0.##")
+        return fila + 1, fila
 
     def _filas_empleado(self, hoja, fila, emp) -> int:
         f_ent, f_sal, f_sum = fila, fila + 1, fila + 2
@@ -316,24 +332,33 @@ class ExportadorFacturacion:
             rel_sum = rel_base if cel["vac"] else _PEACH
             self._cel(hoja, f_ent, col, cel["entrada"], fuente=_F_NEG, relleno=rel_ev)
             self._cel(hoja, f_sal, col, cel["salida"], fuente=_F_NEG, relleno=rel_ev)
+            # La celda SUMA (horas de la jornada) es EDITABLE; los totales la suman.
             self._cel(hoja, f_sum, col, cel["suma"], fuente=_F_PEQ, relleno=rel_sum)
-        # Etiquetas y totales a la derecha.
+        # Totales del trabajador con fórmula (se recalculan al editar las horas).
+        c0, c1 = self._col(self.col_dia0), self._col(self.col_dia0 + self.n_dias - 1)
+        ltot = self._col(self.col_tot)
         self._cel(hoja, f_ent, self.col_dif, "HORAS", fuente=_F_PEQ, borde=False)
         self._cel(hoja, f_sal, self.col_dif, "EXTRAS", fuente=_F_PEQ, borde=False)
-        self._cel(hoja, f_sum, self.col_tot, emp["total"] or "", fuente=_F_NEG, relleno=_AMAR)
-        self._cel(hoja, f_sum, self.col_dif, f"{emp['dif']:.2f}".replace(".", ","),
-                  fuente=_F_NEG, borde=False)
+        self._cel(hoja, f_sum, self.col_tot, f"=SUM({c0}{f_sum}:{c1}{f_sum})",
+                  fuente=_F_NEG, relleno=_AMAR, formato="0.##")
+        self._cel(hoja, f_sum, self.col_dif, f"={ltot}{f_sum}-{int(_COMPUTO)}",
+                  fuente=_F_NEG, borde=False, formato="0.00")
         return f_sum + 1
 
-    def _total_general(self, hoja, fila) -> int:
+    def _total_general(self, hoja, fila, filas_total_serv) -> int:
+        # TOTAL GENERAL diario = suma (con fórmula) de los totales de los servicios
+        # de ese día; y el total del mes = suma de la fila. Al editar horas en
+        # cualquier servicio, el total general se recalcula automáticamente.
         self._cel(hoja, fila, 1, "TOTAL GENERAL", fuente=_F_NEG, relleno=_AMAR, alin=_IZQ)
         self._cel(hoja, fila, 2, "", relleno=_AMAR)
-        for i, dia in enumerate(self.calendario.dias):
+        c0, c1 = self._col(self.col_dia0), self._col(self.col_dia0 + self.n_dias - 1)
+        for dia in self.calendario.dias:
             col = self.col_dia0 + dia - 1
-            self._cel(hoja, fila, col, self.datos["total_general_dia"][i],
-                      fuente=_F_NEG, relleno=_AMAR)
-        self._cel(hoja, fila, self.col_tot, self.datos["total_general"],
-                  fuente=_F_NEG, relleno=_AMAR)
+            L = self._col(col)
+            formula = "=" + "+".join(f"{L}{ft}" for ft in filas_total_serv)
+            self._cel(hoja, fila, col, formula, fuente=_F_NEG, relleno=_AMAR, formato="0.##")
+        self._cel(hoja, fila, self.col_tot, f"=SUM({c0}{fila}:{c1}{fila})",
+                  fuente=_F_NEG, relleno=_AMAR, formato="0.##")
         self._cel(hoja, fila, self.col_dif, "", borde=False)
         return fila + 1
 
