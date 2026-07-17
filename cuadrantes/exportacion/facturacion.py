@@ -350,7 +350,7 @@ class ExportadorFacturacion:
         self._cel(hoja, f_sum, self.col_tot, f"=SUM({c0}{f_sum}:{c1}{f_sum})",
                   fuente=_F_NEG, relleno=_AMAR, formato="0.##")
         self._cel(hoja, f_sum, self.col_dif, f"={ltot}{f_sum}-{int(_COMPUTO)}",
-                  fuente=_F_NEG, borde=False, formato="0.00")
+                  fuente=_F_NEG, borde=False, formato="0")
         return f_sum + 1
 
     def _total_general(self, hoja, fila, filas_total_serv) -> int:
@@ -474,7 +474,7 @@ class ExportadorFacturacionPDF:
                     if cel["vac"]:
                         estilos.append(("BACKGROUND", (col_d0 + i, r), (col_d0 + i, r + 1), cyan))
                 fu[col_tot] = emp["total"] or ""
-                fu[col_dif] = f"{emp['dif']:.2f}".replace(".", ",")
+                fu[col_dif] = str(int(round(emp["dif"])))
                 filas += [fe, fs, fu]
                 sombrear_finde(r); sombrear_finde(r + 1)
                 # Fila SUMA: banda peach continua (diferencia a cada empleado).
