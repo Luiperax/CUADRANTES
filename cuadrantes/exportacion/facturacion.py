@@ -256,7 +256,10 @@ class ExportadorFacturacion:
         # Columnas: A=etiqueta izq; B..M=valor izq; N..P=etiqueta der; Q..T=valor der.
         c_val1a, c_val1b = 2, 13
         c_lab2a, c_lab2b = 14, 17
-        c_val2a, c_val2b = 18, 22
+        # Caja de valor derecha (CD. CENTRO / MES): ancha para que quepan meses
+        # largos como "SEPTIEMBRE 2026" sin recortarse. Se mantiene dentro de las
+        # columnas de día (filas de cabecera, sin datos de calendario).
+        c_val2a, c_val2b = 18, min(29, self.col_tot - 1)
 
         self._caja(hoja, 2, 1, 2, 1, "CLIENTE:", fuente=et, relleno=_GRIS, alin=izq)
         self._caja(hoja, 2, c_val1a, 2, c_val1b, "NATURGY", fuente=val_g)
@@ -313,7 +316,7 @@ class ExportadorFacturacion:
             formula = "=SUM(" + ",".join(f"{L}{fs}" for fs in filas_suma) + ")" if filas_suma else 0
             self._cel(hoja, fila, col, formula, fuente=_F_NEG, relleno=_AMAR, formato="0;-0;")
         self._cel(hoja, fila, self.col_tot, f"=SUM({c0}{fila}:{c1}{fila})",
-                  fuente=_F_NEG, relleno=_AMAR, formato="0.##")
+                  fuente=_F_NEG, relleno=_AMAR, formato="0")
         return fila + 1, fila
 
     def _filas_empleado(self, hoja, fila, emp) -> int:
@@ -348,7 +351,7 @@ class ExportadorFacturacion:
         self._cel(hoja, f_ent, self.col_dif, "HORAS", fuente=_F_PEQ, borde=False)
         self._cel(hoja, f_sal, self.col_dif, "EXTRAS", fuente=_F_PEQ, borde=False)
         self._cel(hoja, f_sum, self.col_tot, f"=SUM({c0}{f_sum}:{c1}{f_sum})",
-                  fuente=_F_NEG, relleno=_AMAR, formato="0.##")
+                  fuente=_F_NEG, relleno=_AMAR, formato="0")
         self._cel(hoja, f_sum, self.col_dif, f"={ltot}{f_sum}-{int(_COMPUTO)}",
                   fuente=_F_NEG, borde=False, formato="0")
         return f_sum + 1
@@ -364,9 +367,9 @@ class ExportadorFacturacion:
             col = self.col_dia0 + dia - 1
             L = self._col(col)
             formula = "=SUM(" + ",".join(f"{L}{ft}" for ft in filas_total_serv) + ")"
-            self._cel(hoja, fila, col, formula, fuente=_F_NEG, relleno=_AMAR, formato="0.##")
+            self._cel(hoja, fila, col, formula, fuente=_F_NEG, relleno=_AMAR, formato="0")
         self._cel(hoja, fila, self.col_tot, f"=SUM({c0}{fila}:{c1}{fila})",
-                  fuente=_F_NEG, relleno=_AMAR, formato="0.##")
+                  fuente=_F_NEG, relleno=_AMAR, formato="0")
         self._cel(hoja, fila, self.col_dif, "", borde=False)
         return fila + 1
 
