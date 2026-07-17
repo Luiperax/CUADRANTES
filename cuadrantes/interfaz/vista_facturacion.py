@@ -194,7 +194,8 @@ class VistaFacturacion(QtWidgets.QWidget):
         self.tabla.setItem(f_sal, col_dif, self._item("EXTRAS"))
         self.tabla.setItem(f_sum, col_tot, self._item(emp["total"] or "", _AMAR, True))
         self.tabla.setItem(f_sum, col_dif,
-                           self._item(str(int(round(emp["dif"]))), None, True))
+                           self._item(str(int(round(emp["dif"]))) if emp["total"] else "",
+                                      None, True))
         return f_sum + 1
 
     # ------------------------------------------------------------------

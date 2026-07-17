@@ -141,10 +141,17 @@ def construir_datos_facturacion(cuadrante: Cuadrante, trabajadores: dict[int, Tr
 
     servicios = []
     for clave, codigo, nombre in _SERVICIOS:
+        # En cada OT aparecen TODOS los empleados (aunque este mes no hayan cubierto
+        # ese servicio), de modo que si hacen cambios de turno entre ellos la fila ya
+        # está creada y basta con mover las horas. La única excepción es
+        # MÓVIL/RESPONSABLE, que solo hacen los jefes de equipo (Luis y Fernando).
+        if clave == "MOVIL":
+            roster = [tid for tid in ids
+                      if (t := trabajadores.get(tid)) is not None and t.es_jefe_equipo]
+        else:
+            roster = list(ids)
         empleados = []
-        for tid in ids:
-            if not any(serv_dia(tid, d) == clave for d in dias):
-                continue
+        for tid in roster:
             celdas, total = [], 0
             for dia in dias:
                 a = cuadrante.obtener(tid, dia)
@@ -347,12 +354,16 @@ class ExportadorFacturacion:
             self._cel(hoja, f_sum, col, formula, fuente=_F_PEQ, relleno=rel_sum, formato="0;-0;")
         # Totales del trabajador con fórmula (se recalculan al editar las horas).
         c0, c1 = self._col(self.col_dia0), self._col(self.col_dia0 + self.n_dias - 1)
-        ltot = self._col(self.col_tot)
+        rango = f"{c0}{f_sum}:{c1}{f_sum}"
         self._cel(hoja, f_ent, self.col_dif, "HORAS", fuente=_F_PEQ, borde=False)
         self._cel(hoja, f_sal, self.col_dif, "EXTRAS", fuente=_F_PEQ, borde=False)
-        self._cel(hoja, f_sum, self.col_tot, f"=SUM({c0}{f_sum}:{c1}{f_sum})",
+        # Total y extras del trabajador. Si no tiene horas en este servicio (fila
+        # vacía, presente por si hay cambios de turno) quedan en blanco; en cuanto
+        # se le anotan horas se rellenan solos.
+        self._cel(hoja, f_sum, self.col_tot, f'=IF(SUM({rango})=0,"",SUM({rango}))',
                   fuente=_F_NEG, relleno=_AMAR, formato="0")
-        self._cel(hoja, f_sum, self.col_dif, f"={ltot}{f_sum}-{int(_COMPUTO)}",
+        self._cel(hoja, f_sum, self.col_dif,
+                  f'=IF(SUM({rango})=0,"",SUM({rango})-{int(_COMPUTO)})',
                   fuente=_F_NEG, borde=False, formato="0")
         return f_sum + 1
 
@@ -477,7 +488,7 @@ class ExportadorFacturacionPDF:
                     if cel["vac"]:
                         estilos.append(("BACKGROUND", (col_d0 + i, r), (col_d0 + i, r + 1), cyan))
                 fu[col_tot] = emp["total"] or ""
-                fu[col_dif] = str(int(round(emp["dif"])))
+                fu[col_dif] = str(int(round(emp["dif"]))) if emp["total"] else ""
                 filas += [fe, fs, fu]
                 sombrear_finde(r); sombrear_finde(r + 1)
                 # Fila SUMA: banda peach continua (diferencia a cada empleado).
