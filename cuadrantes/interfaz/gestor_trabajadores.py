@@ -55,6 +55,12 @@ class DialogoTrabajador(QtWidgets.QDialog):
         self.w_maximizar.setToolTip(
             "Exento del límite de días consecutivos y del descanso mínimo. Sigue "
             "respetando las reglas de fines de semana y de noches.")
+        self.w_finde_noche = QtWidgets.QCheckBox(
+            "En fin de semana, solo de noche (si le toca finde, es nocturno)")
+        self.w_finde_noche.setChecked(self.trabajador.finde_solo_noche)
+        self.w_finde_noche.setToolTip(
+            "En sábado y domingo no se le asignan turnos diurnos; solo puede hacer "
+            "noches. Entre semana no le afecta.")
         self.w_pref_dia = QtWidgets.QCheckBox()
         self.w_pref_dia.setChecked(self.trabajador.prefiere_turno_dia)
         self.w_pref_noche = QtWidgets.QCheckBox()
@@ -68,6 +74,7 @@ class DialogoTrabajador(QtWidgets.QDialog):
         disp.addRow("Puede hacer noches:", self.w_noches)
         disp.addRow("Fines de semana exactos/mes:", self.w_findes)
         disp.addRow("Maximizar días:", self.w_maximizar)
+        disp.addRow("Fin de semana solo noche:", self.w_finde_noche)
 
         # Casillas de puestos diurnos y nocturnos.
         self.chk_diurnos = {}
@@ -110,6 +117,7 @@ class DialogoTrabajador(QtWidgets.QDialog):
         t.es_jefe_equipo = self.w_jefe.isChecked()
         t.prioridad_jefe = self.w_prioridad.value()
         t.maximizar_dias = self.w_maximizar.isChecked()
+        t.finde_solo_noche = self.w_finde_noche.isChecked()
         valor_findes = self.w_findes.value()
         t.fines_semana_exactos = None if valor_findes < 0 else valor_findes
         t.prefiere_turno_dia = self.w_pref_dia.isChecked()

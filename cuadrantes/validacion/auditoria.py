@@ -134,6 +134,14 @@ class Auditor:
                 infracciones.append(
                     f"{trabajador.nombre} realiza MT-F1 en laborable (día {dia}), reservado a jefes")
                 afectados.add(trabajador.nombre)
+            # Fin de semana solo de noche.
+            if (trabajador and getattr(trabajador, "finde_solo_noche", False)
+                    and self.calendario.es_fin_de_semana(dia)
+                    and not asignacion.turno.es_nocturno):
+                infracciones.append(
+                    f"{trabajador.nombre} en {asignacion.turno.value} en fin de semana "
+                    f"(día {dia}); solo puede fin de semana de noche")
+                afectados.add(trabajador.nombre)
         if infracciones:
             return ResultadoRegla(
                 "Restricciones individuales", EstadoRegla.NO_CUMPLE,

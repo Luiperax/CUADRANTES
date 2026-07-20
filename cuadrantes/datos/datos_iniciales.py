@@ -34,6 +34,7 @@ class _PlantillaTrabajador:
     es_jefe_equipo: bool = False
     prioridad_jefe: int = 0
     maximizar_dias: bool = False
+    finde_solo_noche: bool = False
     notas: str = ""
 
     def a_trabajador(self) -> Trabajador:
@@ -46,6 +47,7 @@ class _PlantillaTrabajador:
             es_jefe_equipo=self.es_jefe_equipo,
             prioridad_jefe=self.prioridad_jefe,
             maximizar_dias=self.maximizar_dias,
+            finde_solo_noche=self.finde_solo_noche,
             notas=self.notas,
         )
 
@@ -73,7 +75,9 @@ EQUIPO_ACTUAL: list[_PlantillaTrabajador] = [
               "día extra de MT-F1 cuando el reparto no es par (prioridad mayor)."),
     _PlantillaTrabajador(
         "MOHAMED AMAR MOHAMED", {Puesto.MO}, {Puesto.F1, Puesto.F2},
-        notas="Solo MO de mañana o cualquier puesto de noche. Nunca F1/F2/EX-MT."),
+        finde_solo_noche=True,
+        notas="Solo MO de mañana o cualquier puesto de noche. Nunca F1/F2/EX-MT. "
+              "En fin de semana, solo de noche (si le toca finde, es nocturno)."),
     # Resto del equipo (polivalente).
     _PlantillaTrabajador("EUGENIA DEL PILAR VILEMA VILEMA"),
     _PlantillaTrabajador("SANTIAGO R. MANRIQUE GÓMEZ"),
@@ -129,6 +133,7 @@ def sincronizar_equipo(servicio: ServicioCuadrantes) -> dict[str, list[str]]:
             actual.fines_semana_exactos = definicion.fines_semana_exactos
             actual.es_jefe_equipo = definicion.es_jefe_equipo
             actual.prioridad_jefe = definicion.prioridad_jefe
+            actual.finde_solo_noche = definicion.finde_solo_noche
             # 'maximizar_dias' NO se sincroniza: es un ajuste manual y excepcional
             # (por mes) que fija el usuario, no una característica fija del puesto.
             servicio.trabajadores.guardar(actual)

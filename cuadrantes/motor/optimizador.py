@@ -278,6 +278,21 @@ class OptimizadorCuadrante:
                 # El trabajador hace el sábado si y solo si hace el domingo.
                 self.modelo.Add(b_sab == b_dom)
 
+    def _restriccion_finde_solo_noche(self) -> None:
+        """Trabajadores que en fin de semana solo pueden de noche.
+
+        Si el trabajador tiene ``finde_solo_noche``, en sábado y domingo se le
+        prohíben los turnos diurnos: si le toca fin de semana, será de noche.
+        """
+        for trabajador in self.trabajadores:
+            if not getattr(trabajador, "finde_solo_noche", False):
+                continue
+            for dia in self.calendario.dias:
+                if not self.calendario.es_fin_de_semana(dia):
+                    continue
+                for var in self._variable_trabaja(trabajador.id, dia, solo_noche=False):
+                    self.modelo.Add(var == 0)
+
     def _restriccion_noche_viernes(self) -> None:
         """Una noche en viernes obliga a hacer el fin de semana completo de noche.
 
@@ -642,6 +657,7 @@ class OptimizadorCuadrante:
         self._restriccion_un_turno_por_dia()
         self._restriccion_noche_manana()
         self._restriccion_fines_semana()
+        self._restriccion_finde_solo_noche()
         self._restriccion_noche_viernes()
         self._restriccion_consecutivos()
         self._restriccion_vacaciones()

@@ -61,6 +61,11 @@ class Trabajador:
     # y de noches se siguen respetando siempre.
     maximizar_dias: bool = False
 
+    # Si trabaja en fin de semana (sábado o domingo), solo puede hacerlo de noche.
+    # Es decir: en fin de semana no se le asignan turnos diurnos; si le toca fin de
+    # semana, será de noche. Entre semana no le afecta.
+    finde_solo_noche: bool = False
+
     # Preferencias (objetivos blandos).
     prefiere_turno_dia: bool = False
     prefiere_turno_noche: bool = False
