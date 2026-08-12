@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Importa al historial los cuadrantes REALES de enero a agosto de 2026.
+Importa al historial los cuadrantes REALES de enero a septiembre de 2026.
 
 Ejecútelo UNA vez en el portátil, en la carpeta del programa:
 
@@ -115,23 +115,36 @@ MESES = json.loads(r"""{
 "IVÁN DÍAZ MOYA": "MT/MO MT/EX MT/F2 . . MT/EX MT/EX TN/F1 TN/F2 TN/F2 TN/F2 TN/F1 . . . V V V V V V V V V V V V V V V V"
 },
 "8": {
-"FERNANDO CEMBRERO ANTOLÍN": ". . MT/F1 MT/F1 MT/F1 MT/F1 MT/F1 . . MT/F1 MT/F1 MT/EX MT/F2 MT/EX . . MT/F1 MT/F1 MT/F1 MT/EX . . . V V V V V V V V",
-"SANTIAGO R. MANRIQUE GÓMEZ": "V V V V V V V V V V V V V V V V . . MT/F2 MT/MO MT/EX . . MT/EX MT/EX MT/MO MT/F2 MT/MO MT/F2 MT/F2 .",
-"DANIEL LABERNIA GONZÁLEZ": ". . . . . MT/EX TN/F1 TN/F2 TN/F1 TN/F1 TN/F2 TN/F1 . . . . TN/F2 TN/F2 . . . MT/F2 MT/F1 MT/F2 . MT/EX . MT/F2 . . .",
-"JAVIER CALDERON FERNÁNDEZ": ". . MT/F2 MT/EX MT/EX . MT/F2 MT/F2 MT/F1 . MT/EX MT/F2 MT/EX MT/MO . . MT/F2 MT/EX MT/MO . MT/F2 . . . MT/F2 MT/F2 MT/MO MT/EX . . MT/F2",
-"Mª VICTORIA CANO MARTINEZ": ". . V V V V V V V MT/F2 TN/F1 TN/F2 TN/F2 TN/F2 TN/F2 TN/F1 . . . . TN/F2 TN/F2 TN/F1 TN/F2 TN/F2 TN/F1 TN/F1 . . . MT/EX",
-"JAVIER PEREZ GALLARDO": ". . . TN/F1 TN/F1 TN/F2 . . . . . MT/MO TN/F1 TN/F1 TN/F1 TN/F2 TN/F1 . TN/F1 TN/F2 . . . MT/MO MT/MO . MT/EX TN/F1 TN/F2 TN/F1 TN/F1",
+"FERNANDO CEMBRERO ANTOLÍN": ". . MT/F1 MT/F1 MT/F1 MT/F1 MT/F1 . . MT/F1 MT/F1 MT/EX MT/F2 MT/EX . . MT/F1 MT/F1 MT/F1 MT/EX MT/MO . . V V V V V V V V",
+"EUGENIA DEL PILAR VILEMA VILEMA": "TN/F2 TN/F1 TN/F2 TN/F2 TN/F2 . MT/EX MT/F1 MT/F2 MT/EX MT/MO . . . . . MT/MO MT/MO . . . V V V V V V V V V V",
+"SANTIAGO R. MANRIQUE GÓMEZ": "V V V V V V V V V V V V V V V V MT/EX . MT/F2 MT/MO MT/EX . . MT/EX MT/EX MT/MO MT/F2 MT/MO MT/F2 MT/F2 MT/MO",
+"DANIEL LABERNIA GONZÁLEZ": ". . . . . . . TN/F2 TN/F1 TN/F1 TN/F2 TN/F1 . . . . TN/F2 TN/F2 . MT/F2 . MT/F2 MT/F1 MT/F2 . MT/EX . MT/F2 . . .",
+"Mª VICTORIA CANO MARTINEZ": ". . V V V V V V V . TN/F1 TN/F2 TN/F2 TN/F2 TN/F2 TN/F1 . . . . TN/F2 . TN/F1 TN/F2 TN/F2 TN/F1 TN/F1 . . TN/F2 TN/F2",
+"JAVIER PEREZ GALLARDO": ". . . MT/EX MT/EX MT/EX . . . MT/F2 . MT/MO TN/F1 TN/F1 TN/F1 TN/F2 . . TN/F1 TN/F1 . . . MT/MO MT/MO . MT/EX TN/F1 TN/F2 TN/F1 TN/F1",
 "LUIS PERALTA ROS": "V V V V V V V V V V V MT/F1 MT/F1 MT/F1 . . . . . MT/F1 MT/F1 . . MT/F1 MT/F1 MT/F1 MT/F1 MT/F1 MT/F1 MT/F1 MT/F1",
-"ALICIA GUTIERREZ SANCHEZ": "MT/F1 MT/F2 MT/MO MT/F2 . TN/F1 TN/F2 TN/F1 TN/F2 TN/F2 . . MT/MO . MT/F1 MT/F2 MT/EX . . . . . . . TN/F1 TN/F2 TN/F2 TN/F2 TN/F1 TN/F2 TN/F2",
-"MOHAMED AMAR MOHAMED": "TN/F1 TN/F2 TN/F1 . MT/MO MT/MO MT/MO . . V V V V V V V . MT/MO TN/F1 TN/F2 TN/F1 TN/F1 TN/F2 TN/F1 . . MT/MO . . . MT/MO",
-"EUGENIA DEL PILAR VILEMA VILEMA": "TN/F2 TN/F1 TN/F2 TN/F2 TN/F2 . MT/EX MT/F1 MT/F2 MT/EX MT/MO . . . . . MT/MO TN/F1 . . MT/MO V V V V V V V V V V",
-"IVÁN DÍAZ MOYA": "MT/F2 MT/F1 MT/EX MT/MO MT/F2 MT/F2 . . . MT/MO MT/F2 . . MT/F2 MT/F2 MT/F1 . MT/F2 MT/EX MT/F2 . MT/F1 MT/F2 . . . . . . . ."
+"JAVIER CALDERON FERNÁNDEZ": ". . MT/F2 MT/F2 . . . . . . MT/EX MT/F2 MT/EX MT/MO . . MT/F2 MT/EX MT/MO . MT/F2 . . . MT/F2 MT/F2 MT/MO MT/EX . . MT/F2",
+"MOHAMED AMAR MOHAMED": "TN/F1 TN/F2 TN/F1 . MT/MO MT/MO MT/MO MT/F2 MT/F1 V V V V V V V TN/F1 TN/F1 TN/F2 TN/F2 TN/F1 TN/F1 TN/F2 TN/F1 . . . . . . .",
+"IVAN DIAZ MOYA": "MT/F2 MT/F1 MT/EX MT/MO MT/F2 MT/F2 . . . MT/MO MT/F2 . . MT/F2 MT/F2 MT/F1 . MT/F2 MT/EX . . MT/F1 MT/F2 . . . . . . . .",
+"JOSE JAVIER SANCHEZ GIGORRO": ". . . . TN/F2 TN/F2 TN/F2 . . . . . . . . . . . . . . . . . . . . . . . .",
+"ALICIA GUTIERREZ SANCHEZ": "MT/F1 MT/F2 MT/MO TN/F1 . TN/F1 TN/F1 TN/F1 TN/F2 TN/F2 . . MT/MO . MT/F1 MT/F2 . . . . . TN/F2 . . TN/F1 TN/F2 TN/F2 TN/F2 TN/F1 . MT/EX"
+},
+"9": {
+"FERNANDO CEMBRERO ANTOLÍN": "V V V V V V V V MT/EX MT/F1 MT/F1 MT/F1 MT/F1 MT/F2 MT/EX . . . . . MT/F1 MT/F1 MT/F1 MT/F1 MT/F1 . . MT/F1 MT/F1 MT/F1",
+"EUGENIA DEL PILAR VILEMA VILEMA": "V V V V V V MT/F2 MT/MO . MT/MO MT/F2 . . TN/F2 TN/F1 TN/F1 . MT/EX MT/F2 MT/F1 TN/F2 TN/F2 TN/F2 . . MT/F2 MT/F1 MT/MO . .",
+"SANTIAGO R. MANRIQUE GÓMEZ": ". . MT/MO MT/EX . . MT/MO MT/F2 MT/MO MT/F2 MT/MO . . MT/EX MT/F2 TN/F2 TN/F2 . . . . MT/EX MT/EX TN/F2 TN/F1 TN/F1 TN/F2 . . MT/F2",
+"DANIEL LABERNIA GONZÁLEZ": "V V V V V V V V V V V V V V V V MT/EX MT/MO MT/F1 MT/F2 MT/MO . . . TN/F2 TN/F2 TN/F1 TN/F1 TN/F2 TN/F1",
+"JAVIER CALDERON FERNÁNDEZ": "MT/EX MT/F2 MT/EX MT/MO . . V V V V V V V V MT/MO MT/F2 MT/F2 MT/F2 . . MT/F2 TN/F1 TN/F1 TN/F1 . . . TN/F2 TN/F1 TN/F2",
+"Mª VICTORIA CANO MARTINEZ": "MT/F2 MT/MO MT/F2 MT/F2 . . MT/EX TN/F1 . . TN/F1 TN/F2 TN/F2 . . MT/EX TN/F1 TN/F1 TN/F2 TN/F1 . . . MT/MO MT/MO . . . MT/EX MT/MO",
+"JAVIER PEREZ GALLARDO": "TN/F1 TN/F2 TN/F1 . MT/F2 MT/F2 TN/F2 TN/F2 TN/F2 . . MT/F2 MT/F2 TN/F1 TN/F2 . . . . . . MT/F2 MT/MO MT/F2 MT/EX . . MT/EX MT/F2 .",
+"LUIS PERALTA ROS": "MT/F1 MT/F1 MT/F1 MT/F1 MT/F1 MT/F1 MT/F1 MT/F1 MT/F1 MT/EX MT/EX . . MT/F1 MT/F1 MT/F1 MT/F1 MT/F1 . . . . . . . . . MT/F2 MT/MO MT/EX",
+"MOHAMED AMAR MOHAMED": "TN/F2 TN/F1 . TN/F2 TN/F1 TN/F1 TN/F1 . TN/F1 TN/F2 TN/F2 TN/F1 TN/F1 . . MT/MO MT/MO TN/F2 TN/F1 TN/F2 TN/F1 . . V V V V V V V",
+"IVAN DIAZ MOYA": "MT/MO MT/EX TN/F2 TN/F1 TN/F2 TN/F2 . MT/EX MT/F2 TN/F1 . . . MT/MO . . . . . . MT/EX MT/MO MT/F2 MT/EX MT/F2 MT/F1 MT/F2 . . ."
 }
 }""")
 
-DIAS_MES = {1: 31, 2: 28, 3: 31, 4: 30, 5: 31, 6: 30, 7: 31, 8: 31}
+DIAS_MES = {1: 31, 2: 28, 3: 31, 4: 30, 5: 31, 6: 30, 7: 31, 8: 31, 9: 30}
 NOMBRE_MES = {1: "enero", 2: "febrero", 3: "marzo", 4: "abril", 5: "mayo",
-              6: "junio", 7: "julio", 8: "agosto"}
+              6: "junio", 7: "julio", 8: "agosto", 9: "septiembre"}
 
 
 def _norm(nombre: str) -> str:
@@ -215,7 +228,7 @@ def main() -> int:
               f"{tt:3d} turnos, {nn:3d} noches  [guardado]")
         total_ok += 1
 
-    print(f"\n\u2705 {total_ok} meses (enero-agosto 2026) añadidos al historial.")
+    print(f"\n\u2705 {total_ok} meses (enero-septiembre 2026) añadidos al historial.")
     print("   Ábralos en el programa para revisarlos. A partir de ahora el reparto")
     print("   tendrá en cuenta todo el año.")
     servicio.cerrar()
