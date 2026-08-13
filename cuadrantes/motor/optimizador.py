@@ -333,6 +333,25 @@ class OptimizadorCuadrante:
                 for var in self._variable_trabaja(trabajador.id, dia, solo_noche=False):
                     self.modelo.Add(var == 0)
 
+    def _restriccion_jefes_finde_distinto(self) -> None:
+        """Dos jefes de equipo no coinciden en el mismo fin de semana.
+
+        Cada jefe hace su fin de semana en una fecha distinta a la del otro, de modo
+        que no cubren el mismo sábado/domingo. (Basta con controlar el sábado: la
+        regla de sábado-domingo del mismo trabajador arrastra el domingo.)
+        """
+        jefes = [t for t in self.trabajadores if t.es_jefe_equipo]
+        if len(jefes) < 2:
+            return
+        for dia in self.calendario.dias:
+            if not self.calendario.es_sabado(dia):
+                continue
+            vars_sabado = []
+            for jefe in jefes:
+                vars_sabado += self._variable_trabaja(jefe.id, dia)
+            if vars_sabado:
+                self.modelo.Add(sum(vars_sabado) <= 1)
+
     def _restriccion_noche_viernes(self) -> None:
         """Una noche en viernes obliga a hacer el fin de semana completo de noche.
 
@@ -699,6 +718,7 @@ class OptimizadorCuadrante:
         self._restriccion_fines_semana()
         self._restriccion_puente_festivo()
         self._restriccion_finde_solo_noche()
+        self._restriccion_jefes_finde_distinto()
         self._restriccion_noche_viernes()
         self._restriccion_consecutivos()
         self._restriccion_vacaciones()
