@@ -529,6 +529,7 @@ class OptimizadorCuadrante:
             }
             cota_fest = len(festivo_dias) + (max(fest_hist.values()) if fest_hist else 0) + 1
             carga_festivos: dict[int, cp_model.IntVar] = {}
+            fest_mes_por_id: dict[int, cp_model.IntVar] = {}
             for trabajador in self.trabajadores:
                 # El reparto equilibra los festivos realmente TRABAJADOS. Un festivo
                 # que cae en vacaciones no cuenta como trabajado (quien estuvo de
@@ -539,11 +540,23 @@ class OptimizadorCuadrante:
                 ]
                 fest_mes = self.modelo.NewIntVar(0, len(festivo_dias), f"festmes_{trabajador.id}")
                 self.modelo.Add(fest_mes == (sum(vars_fest) if vars_fest else 0))
+                fest_mes_por_id[trabajador.id] = fest_mes
                 total_fest = self.modelo.NewIntVar(0, cota_fest, f"festtot_{trabajador.id}")
                 self.modelo.Add(total_fest == fest_mes + fest_hist[trabajador.id])
                 carga_festivos[trabajador.id] = total_fest
             terminos.append(pesos.equilibrio_festivos * termino_rango(
                 carga_festivos, cota_fest, "festivos"))
+            # Además del rango, preferir dar los festivos del mes a quien MENOS lleva:
+            # coste proporcional a los festivos ya trabajados en el año. Así, cuando
+            # hay un valor atípico que fija el máximo (y el rango no distingue), el
+            # motor sigue eligiendo a los de menor recuento (p. ej. da el festivo al
+            # que lleva 0-1 antes que al que lleva 3).
+            for trabajador in self.trabajadores:
+                if fest_hist[trabajador.id]:
+                    terminos.append(
+                        pesos.equilibrio_festivos
+                        * fest_hist[trabajador.id]
+                        * fest_mes_por_id[trabajador.id])
 
         # (3) Compensación histórica: penaliza asignar turnos a quien más ha
         #     trabajado en meses anteriores (desvío positivo respecto a la media).
