@@ -382,6 +382,47 @@ class Auditor:
         return ResultadoRegla("Rotación de puestos", EstadoRegla.CUMPLE,
                               motivo="La rotación de puestos es adecuada.")
 
+    def _dias_puente(self, dia_festivo: int) -> list[int]:
+        """Días del puente que forma un festivo con el fin de semana contiguo."""
+        dsem = self.calendario.dia_semana(dia_festivo)
+        if dsem == 0:            # lunes -> sáb, dom, lun
+            bloque = [dia_festivo - 2, dia_festivo - 1, dia_festivo]
+        elif dsem == 4:          # viernes -> vie, sáb, dom
+            bloque = [dia_festivo, dia_festivo + 1, dia_festivo + 2]
+        else:
+            return []
+        return [d for d in bloque if 1 <= d <= self.calendario.numero_dias]
+
+    def _regla_puente_festivo(self) -> ResultadoRegla:
+        """Quien trabaja un festivo con puente debe hacer el puente completo."""
+        infracciones: list[str] = []
+        afectados: set[str] = set()
+        for dia in self.calendario.dias:
+            if not self.calendario.es_festivo(dia):
+                continue
+            bloque = self._dias_puente(dia)
+            if len(bloque) < 2:
+                continue
+            for tid in self.trabajadores:
+                a = self.cuadrante.obtener(tid, dia)
+                if not (a and a.es_trabajo):
+                    continue
+                for otro in bloque:
+                    if otro == dia:
+                        continue
+                    b = self.cuadrante.obtener(tid, otro)
+                    if not (b and b.es_trabajo):
+                        infracciones.append(
+                            f"{self._nombre(tid)} trabaja el festivo (día {dia}) pero libra el {otro} del puente")
+                        afectados.add(self._nombre(tid))
+        if infracciones:
+            return ResultadoRegla(
+                "Puente de festivo", EstadoRegla.NO_CUMPLE,
+                motivo="; ".join(infracciones[:6]),
+                solucion_propuesta="Quien cubra el festivo debe cubrir todo el puente (o cederlo entero).",
+                trabajadores_afectados=sorted(afectados))
+        return ResultadoRegla("Puente de festivo", EstadoRegla.CUMPLE)
+
     # ------------------------------------------------------------------
     # Auditoría completa
     # ------------------------------------------------------------------
@@ -398,6 +439,7 @@ class Auditor:
             # visibilidad al reparto del mes, sin generar falsas alarmas.
             self._regla_equilibrio("numero_festivos", "Festivos", tolerancia=2),
             self._regla_fines_semana(),
+            self._regla_puente_festivo(),
             self._regla_descansos(),
             self._regla_vacaciones(),
             self._regla_reparto_f1_jefes(),

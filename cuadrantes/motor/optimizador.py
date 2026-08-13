@@ -261,6 +261,46 @@ class OptimizadorCuadrante:
                     for vd in dia_manana:
                         self.modelo.Add(vn + vd <= 1)
 
+    def _dias_puente(self, dia_festivo: int) -> list[int]:
+        """Días del puente que forma un festivo con el fin de semana contiguo.
+
+        * Festivo en lunes  -> puente sábado, domingo, lunes.
+        * Festivo en viernes -> puente viernes, sábado, domingo.
+        Si el festivo no es contiguo a un fin de semana, no forma puente.
+        """
+        dsem = self.calendario.dia_semana(dia_festivo)
+        if dsem == 0:            # lunes
+            bloque = [dia_festivo - 2, dia_festivo - 1, dia_festivo]
+        elif dsem == 4:          # viernes
+            bloque = [dia_festivo, dia_festivo + 1, dia_festivo + 2]
+        else:
+            return []
+        return [d for d in bloque if 1 <= d <= self.calendario.numero_dias]
+
+    def _restriccion_puente_festivo(self) -> None:
+        """Quien trabaje un festivo que hace puente debe hacer el puente completo.
+
+        Si un festivo forma puente con el fin de semana contiguo, el trabajador que
+        cubra el festivo debe cubrir también el resto de días del puente (no se
+        permite trabajar solo el festivo y librar el finde, ni al revés).
+        """
+        for dia in self.calendario.dias:
+            if not self.calendario.es_festivo(dia):
+                continue
+            bloque = self._dias_puente(dia)
+            if len(bloque) < 2:
+                continue
+            for trabajador in self.trabajadores:
+                trabaja_fest = self._variable_trabaja(trabajador.id, dia)
+                if not trabaja_fest:
+                    continue
+                for otro in bloque:
+                    if otro == dia:
+                        continue
+                    trabaja_otro = self._variable_trabaja(trabajador.id, otro)
+                    # trabaja(festivo) -> trabaja(otro día del puente).
+                    self.modelo.Add(sum(trabaja_fest) <= (sum(trabaja_otro) if trabaja_otro else 0))
+
     def _restriccion_fines_semana(self) -> None:
         """Sábado y domingo del mismo fin de semana los realiza la misma persona."""
         if not self.config.fin_de_semana.sabado_domingo_mismo_trabajador:
@@ -657,6 +697,7 @@ class OptimizadorCuadrante:
         self._restriccion_un_turno_por_dia()
         self._restriccion_noche_manana()
         self._restriccion_fines_semana()
+        self._restriccion_puente_festivo()
         self._restriccion_finde_solo_noche()
         self._restriccion_noche_viernes()
         self._restriccion_consecutivos()
