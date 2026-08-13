@@ -530,19 +530,15 @@ class OptimizadorCuadrante:
             cota_fest = len(festivo_dias) + (max(fest_hist.values()) if fest_hist else 0) + 1
             carga_festivos: dict[int, cp_model.IntVar] = {}
             for trabajador in self.trabajadores:
+                # El reparto equilibra los festivos realmente TRABAJADOS. Un festivo
+                # que cae en vacaciones no cuenta como trabajado (quien estuvo de
+                # vacaciones no queda "por delante" ni "por detrás" por ese día).
                 vars_fest = [
                     v for d in festivo_dias
                     for v in self._variable_trabaja(trabajador.id, d)
                 ]
-                # Un festivo que cae en vacaciones cuenta como librado: suma al total
-                # como si lo hubiera trabajado, de modo que no se le carguen festivos
-                # de más por haber estado de vacaciones.
-                fest_vac = sum(
-                    1 for d in festivo_dias
-                    if self._ausencia_del_dia(trabajador.id, d) is TipoAusencia.VACACIONES
-                )
                 fest_mes = self.modelo.NewIntVar(0, len(festivo_dias), f"festmes_{trabajador.id}")
-                self.modelo.Add(fest_mes == (sum(vars_fest) if vars_fest else 0) + fest_vac)
+                self.modelo.Add(fest_mes == (sum(vars_fest) if vars_fest else 0))
                 total_fest = self.modelo.NewIntVar(0, cota_fest, f"festtot_{trabajador.id}")
                 self.modelo.Add(total_fest == fest_mes + fest_hist[trabajador.id])
                 carga_festivos[trabajador.id] = total_fest
