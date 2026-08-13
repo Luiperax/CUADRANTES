@@ -431,15 +431,27 @@ class RepositorioCuadrantes:
         return [dict(f) for f in filas]
 
     def cargar_historico(self, anio: int, mes: int, meses_atras: int) -> list[Cuadrante]:
-        """Carga los cuadrantes de los ``meses_atras`` meses anteriores al indicado."""
+        """Carga los cuadrantes de los ``meses_atras`` meses anteriores al indicado.
+
+        Solo se toma la ÚLTIMA versión de cada mes: si un mes tiene varias versiones
+        (por regeneraciones), no debe contarse más de una vez en el histórico.
+        """
         objetivo = anio * 12 + (mes - 1)
         resultado: list[Cuadrante] = []
+        vistos: set[tuple[int, int]] = set()
+        # listar_cabeceras viene ordenado por versión descendente: la primera cabecera
+        # de cada (año, mes) es la más reciente.
         for cabecera in self.listar_cabeceras():
             clave = cabecera["anio"] * 12 + (cabecera["mes"] - 1)
-            if objetivo - meses_atras <= clave < objetivo:
-                cuad = self.cargar(cabecera["id"])
-                if cuad:
-                    resultado.append(cuad)
+            if not (objetivo - meses_atras <= clave < objetivo):
+                continue
+            mes_clave = (cabecera["anio"], cabecera["mes"])
+            if mes_clave in vistos:
+                continue
+            vistos.add(mes_clave)
+            cuad = self.cargar(cabecera["id"])
+            if cuad:
+                resultado.append(cuad)
         return resultado
 
 

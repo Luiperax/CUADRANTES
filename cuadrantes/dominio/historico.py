@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from ..config.constantes import HORAS_NOCTURNAS_POR_NOCHE, HORAS_POR_TURNO
+from ..config.constantes import HORAS_NOCTURNAS_POR_NOCHE, HORAS_POR_TURNO, TipoAusencia
 from ..datos.modelos import Cuadrante
 
 
@@ -65,6 +65,11 @@ class AgregadorHistorico:
             for (trabajador_id, dia), asignacion in cuadrante.asignaciones.items():
                 carga = acumulado.setdefault(trabajador_id, CargaHistorica(trabajador_id))
                 if not asignacion.es_trabajo:
+                    # Un festivo que cayó en vacaciones cuenta como librado: suma al
+                    # tally de festivos (igual que si lo hubiera trabajado) para no
+                    # cargarle festivos de más en meses posteriores.
+                    if dia in festivos_dias and asignacion.ausencia is TipoAusencia.VACACIONES:
+                        carga.festivos += 1
                     continue
                 carga.horas_totales += HORAS_POR_TURNO
                 if asignacion.es_noche:
