@@ -91,6 +91,7 @@ class OptimizadorCuadrante:
         restricciones: list[RestriccionTemporal] | None = None,
         festivos: set[date] | None = None,
         carga_historica: dict[int, CargaHistorica] | None = None,
+        cuadrante_previo: Cuadrante | None = None,
     ):
         self.anio = anio
         self.mes = mes
@@ -100,6 +101,7 @@ class OptimizadorCuadrante:
         self.restricciones = restricciones or []
         self.calendario = CalendarioMes(anio, mes, festivos or set())
         self.carga_historica = carga_historica or {}
+        self.cuadrante_previo = cuadrante_previo
 
         self.modelo = cp_model.CpModel()
         # x[(t, d, turno, puesto)] -> variable booleana.
@@ -115,6 +117,11 @@ class OptimizadorCuadrante:
         self._hay_jefes = any(t.es_jefe_equipo for t in trabajadores)
         # Holguras de la regla de descansos agrupados (se penalizan en el objetivo).
         self._slacks_descanso: list[cp_model.IntVar] = []
+        # Final del mes anterior (continuidad entre meses).
+        self._prev_turno: dict[tuple[int, int], bool] = {}
+        self._prev_dias_seguidos: dict[int, int] = {}
+        self._prev_ultimo_es_sabado = False
+        self._preparar_mes_previo()
 
     # ------------------------------------------------------------------
     # Preparación de datos
@@ -207,6 +214,101 @@ class OptimizadorCuadrante:
                     self.x[(trabajador.id, dia, turno, puesto)] = self.modelo.NewBoolVar(
                         f"x_{trabajador.id}_{dia}_{turno.value}_{puesto.value}"
                     )
+
+    def _preparar_mes_previo(self) -> None:
+        """Lee los últimos días del mes anterior para enlazar los dos meses.
+
+        Guarda, por trabajador, qué turnos hizo en los últimos días (si fueron de
+        noche), cuántos días seguidos encadenaba al terminar el mes y si el mes
+        anterior acabó en sábado (fin de semana partido entre meses).
+        """
+        if self.cuadrante_previo is None:
+            return
+        import calendar as _calendario
+        from datetime import date as _fecha
+
+        previo = self.cuadrante_previo
+        n_dias_previo = _calendario.monthrange(previo.anio, previo.mes)[1]
+        self._prev_ultimo_es_sabado = (
+            _fecha(previo.anio, previo.mes, n_dias_previo).weekday() == 5
+        )
+        for trabajador in self.trabajadores:
+            seguidos = 0
+            for atras in range(1, 9):           # últimos 8 días del mes anterior
+                dia = n_dias_previo - atras + 1
+                if dia < 1:
+                    break
+                asignacion = previo.obtener(trabajador.id, dia)
+                if asignacion is not None and asignacion.es_trabajo:
+                    self._prev_turno[(trabajador.id, atras)] = asignacion.turno.es_nocturno
+                    if seguidos == atras - 1:
+                        seguidos = atras
+            self._prev_dias_seguidos[trabajador.id] = seguidos
+
+    def _restriccion_continuidad_mes_previo(self) -> None:
+        """Enlaza el arranque del mes con el final del mes anterior.
+
+        * No se encadena una noche del último día del mes anterior con una jornada
+          diurna el día 1.
+        * Los máximos de días y de noches consecutivos se cuentan a caballo entre
+          los dos meses.
+        * Si el mes anterior acabó en sábado, el domingo (día 1) lo hace quien
+          hizo ese sábado (el fin de semana no se parte por el cambio de mes).
+        """
+        if self.cuadrante_previo is None or not self.calendario.dias:
+            return
+        dias = self.calendario.dias
+        dia_uno = dias[0]
+        max_dias = self.config.descanso.max_dias_consecutivos
+        max_noches = self.config.descanso.max_noches_consecutivas
+        for trabajador in self.trabajadores:
+            tid = trabajador.id
+            # Noche el último día del mes anterior -> nada diurno el día 1.
+            if self._prev_turno.get((tid, 1)) is True:
+                for var in self._variable_trabaja(tid, dia_uno, solo_noche=False):
+                    self.modelo.Add(var == 0)
+
+            # Días consecutivos arrastrados del mes anterior.
+            seguidos = self._prev_dias_seguidos.get(tid, 0)
+            if seguidos and not trabajador.maximizar_dias:
+                margen = max_dias - seguidos
+                if margen <= 0:
+                    for var in self._variable_trabaja(tid, dia_uno):
+                        self.modelo.Add(var == 0)
+                else:
+                    ventana = [
+                        v for d in dias[: margen + 1] for v in self._variable_trabaja(tid, d)
+                    ]
+                    if ventana:
+                        self.modelo.Add(sum(ventana) <= margen)
+
+            # Noches consecutivas arrastradas del mes anterior.
+            noches_seguidas = 0
+            for atras in range(1, 9):
+                if self._prev_turno.get((tid, atras)) is True and noches_seguidas == atras - 1:
+                    noches_seguidas = atras
+                else:
+                    break
+            if noches_seguidas:
+                margen_n = max_noches - noches_seguidas
+                if margen_n <= 0:
+                    for var in self._variable_trabaja(tid, dia_uno, solo_noche=True):
+                        self.modelo.Add(var == 0)
+                else:
+                    ventana = [
+                        v for d in dias[: margen_n + 1]
+                        for v in self._variable_trabaja(tid, d, solo_noche=True)
+                    ]
+                    if ventana:
+                        self.modelo.Add(sum(ventana) <= margen_n)
+
+            # Fin de semana partido entre meses (mes anterior acaba en sábado).
+            if (self._prev_ultimo_es_sabado
+                    and self.config.fin_de_semana.sabado_domingo_mismo_trabajador):
+                vars_domingo = self._variable_trabaja(tid, dia_uno)
+                if vars_domingo:
+                    trabajo_el_sabado = (tid, 1) in self._prev_turno
+                    self.modelo.Add(sum(vars_domingo) == (1 if trabajo_el_sabado else 0))
 
     def _restriccion_cobertura(self) -> None:
         """Cada puesto requerido debe cubrirse exactamente una vez (con holgura)."""
@@ -628,6 +730,21 @@ class OptimizadorCuadrante:
                         self.modelo.Add(fase <= 1 - var)    # mañana -> fase mañana
                     fases[dia] = fase
                 dias_fase = sorted(fases)
+                # Enlace con el mes anterior: si acabó el mes de noche (o de día),
+                # empezar el nuevo mes en la otra fase también cuenta como cambio.
+                fase_previa = None
+                for atras in range(1, 9):
+                    if (trabajador.id, atras) in self._prev_turno:
+                        fase_previa = self._prev_turno[(trabajador.id, atras)]
+                        break
+                if fase_previa is not None and dias_fase:
+                    primera = fases[dias_fase[0]]
+                    cambio_ini = self.modelo.NewBoolVar(f"cambiofase_ini_{trabajador.id}")
+                    if fase_previa:                      # venía de noche
+                        self.modelo.Add(cambio_ini >= 1 - primera)
+                    else:                                 # venía de día
+                        self.modelo.Add(cambio_ini >= primera)
+                    terminos.append(pesos.agrupar_dia_noche * cambio_ini)
                 for anterior, siguiente in zip(dias_fase, dias_fase[1:]):
                     cambio = self.modelo.NewBoolVar(f"cambiofase_{trabajador.id}_{anterior}")
                     self.modelo.Add(cambio >= fases[siguiente] - fases[anterior])
@@ -759,6 +876,7 @@ class OptimizadorCuadrante:
         self._restriccion_cobertura()
         self._restriccion_un_turno_por_dia()
         self._restriccion_noche_manana()
+        self._restriccion_continuidad_mes_previo()
         self._restriccion_fines_semana()
         self._restriccion_puente_festivo()
         self._restriccion_finde_solo_noche()

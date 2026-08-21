@@ -127,6 +127,8 @@ class ServicioCuadrantes:
             anio=anio, mes=mes, trabajadores=trabajadores, configuracion=config,
             ausencias=ausencias, restricciones=restricciones, festivos=festivos,
             carga_historica=carga,
+            cuadrante_previo=self.cuadrantes.ultima_version(
+                anio - 1 if mes == 1 else anio, 12 if mes == 1 else mes - 1),
         )
         resultado = optimizador.resolver()
 
