@@ -90,6 +90,11 @@ class PesosObjetivos:
     agrupar_descansos: int = 70
     recuperacion_tras_noche: int = 35
     evitar_cambios_bruscos: int = 45
+    # Agrupar el mes en bloques: una parte de turnos de dia y otra de noche, en
+    # lugar de ir alternando mañana/noche constantemente. Penaliza cada cambio de
+    # "fase" (dia <-> noche) a lo largo del mes. Es un objetivo blando: cede ante
+    # la cobertura del servicio y el equilibrio de horas/noches.
+    agrupar_dia_noche: int = 120
     # Procurar días libres agrupados justo antes o después de las vacaciones.
     # Objetivo blando: se intenta, pero cede ante la cobertura y el equilibrio de
     # horas si hiciera falta.

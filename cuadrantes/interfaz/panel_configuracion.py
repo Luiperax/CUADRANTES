@@ -142,6 +142,7 @@ class PanelConfiguracion(QtWidgets.QDialog):
             "agrupar_descansos": "Agrupar descansos",
             "recuperacion_tras_noche": "Recuperación tras noche",
             "evitar_cambios_bruscos": "Evitar cambios bruscos",
+            "agrupar_dia_noche": "Agrupar días y noches en bloques",
             "adaptacion_vacaciones": "Adaptación de vacaciones",
             "tener_en_cuenta_historico": "Peso de la memoria histórica",
         }

@@ -606,6 +606,34 @@ class OptimizadorCuadrante:
                 )
                 terminos.append(-pesos.respetar_preferencias * dias_trab)
 
+        # (6) Agrupar el mes en BLOQUES de día y de noche, para no ir alternando
+        #     mañana/noche constantemente. Se define una «fase» por día
+        #     (0 = fase de mañana, 1 = fase de noche): trabajar de noche obliga a
+        #     fase de noche y trabajar de mañana obliga a fase de mañana; los días
+        #     libres quedan libres y sirven de transición. Se penaliza cada CAMBIO
+        #     de fase, de modo que lo barato es hacer una parte del mes de día y
+        #     otra de noche (los descansos intermedios no rompen el bloque).
+        if pesos.agrupar_dia_noche:
+            for trabajador in self.trabajadores:
+                fases: dict[int, cp_model.IntVar] = {}
+                for dia in self.calendario.dias:
+                    noches = self._variable_trabaja(trabajador.id, dia, solo_noche=True)
+                    mananas = self._variable_trabaja(trabajador.id, dia, solo_noche=False)
+                    if not noches and not mananas:
+                        continue
+                    fase = self.modelo.NewBoolVar(f"fase_{trabajador.id}_{dia}")
+                    for var in noches:
+                        self.modelo.Add(fase >= var)        # noche  -> fase noche
+                    for var in mananas:
+                        self.modelo.Add(fase <= 1 - var)    # mañana -> fase mañana
+                    fases[dia] = fase
+                dias_fase = sorted(fases)
+                for anterior, siguiente in zip(dias_fase, dias_fase[1:]):
+                    cambio = self.modelo.NewBoolVar(f"cambiofase_{trabajador.id}_{anterior}")
+                    self.modelo.Add(cambio >= fases[siguiente] - fases[anterior])
+                    self.modelo.Add(cambio >= fases[anterior] - fases[siguiente])
+                    terminos.append(pesos.agrupar_dia_noche * cambio)
+
         # (7) Reparto del F1 de mañana en días laborables entre los jefes de equipo:
         # a partes iguales y, cuando el número no es par, el día de más para el jefe
         # de mayor prioridad (por ejemplo, Luis por encima de Fernando).
