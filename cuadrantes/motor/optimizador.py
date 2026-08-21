@@ -683,6 +683,25 @@ class OptimizadorCuadrante:
             self.modelo.Add(exceso >= fines_totales[i] - tope)
             terminos.append(pesos.equilibrio_fines_semana * 50 * exceso)
 
+        # (4 ter) Mínimo preferente de fines de semana: nadie debería quedarse a 0
+        # mientras otros hacen dos o tres. Solo se aplica a quien NO tiene objetivo
+        # individual y tiene sábados disponibles ese mes (si está de vacaciones en
+        # todos, no se le penaliza por no llegar).
+        minimo = self.config.fin_de_semana.fines_semana_objetivo_min
+        if minimo:
+            for trabajador in self.trabajadores:
+                if trabajador.fines_semana_exactos is not None:
+                    continue
+                sabados_posibles = sum(
+                    1 for d in sabados if self._variable_trabaja(trabajador.id, d)
+                )
+                if not sabados_posibles:
+                    continue
+                objetivo_min = min(minimo, sabados_posibles)
+                falta = self.modelo.NewIntVar(0, n_sabados, f"falta_finde_{trabajador.id}")
+                self.modelo.Add(falta >= objetivo_min - fines_totales[trabajador.id])
+                terminos.append(pesos.equilibrio_fines_semana * 50 * falta)
+
         # (4 bis) Objetivo individual de fines de semana (p. ej. Luis y Fernando:
         # exactamente uno al mes). Se penaliza fuertemente cualquier desviación
         # respecto al número exacto, en ambos sentidos (ni más ni menos).
