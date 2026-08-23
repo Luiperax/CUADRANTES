@@ -93,8 +93,11 @@ class PesosObjetivos:
     # Agrupar el mes en bloques: una parte de turnos de dia y otra de noche, en
     # lugar de ir alternando mañana/noche constantemente. Penaliza cada cambio de
     # "fase" (dia <-> noche) a lo largo del mes. Es un objetivo blando: cede ante
-    # la cobertura del servicio y el equilibrio de horas/noches.
-    agrupar_dia_noche: int = 120
+    # la cobertura del servicio, pero debe pesar bastante mas que el equilibrio de
+    # horas (que se cuenta POR HORA de desviacion), o el motor parte los bloques
+    # para cuadrar unas pocas horas. Medido: con 120 salian 24 cambios y con 1200
+    # solo 13, con el mismo reparto de horas.
+    agrupar_dia_noche: int = 1200
     # Procurar días libres agrupados justo antes o después de las vacaciones.
     # Objetivo blando: se intenta, pero cede ante la cobertura y el equilibrio de
     # horas si hiciera falta.

@@ -147,7 +147,7 @@ class PanelConfiguracion(QtWidgets.QDialog):
             "tener_en_cuenta_historico": "Peso de la memoria histórica",
         }
         for clave, etiqueta in etiquetas.items():
-            spin = self._spin(getattr(p, clave), 0, 1000)
+            spin = self._spin(getattr(p, clave), 0, 10000)
             self.w_pesos[clave] = spin
             f.addRow(etiqueta + ":", spin)
         return w
