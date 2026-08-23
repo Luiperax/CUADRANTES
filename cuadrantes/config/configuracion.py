@@ -72,7 +72,10 @@ class PesosObjetivos:
 
     equilibrio_horas: int = 100
     equilibrio_horas_extra: int = 90
-    equilibrio_noches: int = 80
+    # Reparto de noches. Debe pesar en el mismo orden que la agrupacion de
+    # bloques dia/noche: si se queda muy por debajo, el motor agrupa metiendo
+    # todas las noches del mes a una sola persona.
+    equilibrio_noches: int = 500
     equilibrio_fines_semana: int = 80
     # Equilibrio ANUAL de festivos: reparte los festivos trabajados de forma pareja
     # entre trabajadores teniendo en cuenta el histórico (festivos ya trabajados).
@@ -95,9 +98,11 @@ class PesosObjetivos:
     # "fase" (dia <-> noche) a lo largo del mes. Es un objetivo blando: cede ante
     # la cobertura del servicio, pero debe pesar bastante mas que el equilibrio de
     # horas (que se cuenta POR HORA de desviacion), o el motor parte los bloques
-    # para cuadrar unas pocas horas. Medido: con 120 salian 24 cambios y con 1200
-    # solo 13, con el mismo reparto de horas.
-    agrupar_dia_noche: int = 1200
+    # para cuadrar unas pocas horas. Pero tampoco debe aplastar al reparto de
+    # noches. Medido sobre el mismo mes: 120 -> 18 cambios; 1200 -> 13 cambios
+    # pero una persona con 17 noches; 800 (con equilibrio_noches=500) -> 12
+    # cambios y ninguna por encima de 9 noches.
+    agrupar_dia_noche: int = 800
     # Procurar días libres agrupados justo antes o después de las vacaciones.
     # Objetivo blando: se intenta, pero cede ante la cobertura y el equilibrio de
     # horas si hiciera falta.
