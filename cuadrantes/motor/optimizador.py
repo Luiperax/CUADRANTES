@@ -908,7 +908,10 @@ class OptimizadorCuadrante:
 
         solucionador = cp_model.CpSolver()
         solucionador.parameters.max_time_in_seconds = float(self.config.tiempo_maximo_solver_segundos)
-        solucionador.parameters.num_search_workers = 8
+        # Un hilo por nucleo disponible: pedir mas hilos que nucleos los hace
+        # competir entre si y empeora la convergencia.
+        import os as _os
+        solucionador.parameters.num_search_workers = max(1, min(8, _os.cpu_count() or 4))
 
         estado = solucionador.Solve(self.modelo)
         nombre_estado = solucionador.StatusName(estado)
@@ -918,6 +921,11 @@ class OptimizadorCuadrante:
 
         if estado in (cp_model.OPTIMAL, cp_model.FEASIBLE):
             valor = solucionador.ObjectiveValue()
+            if estado == cp_model.FEASIBLE:
+                cota = solucionador.BestObjectiveBound()
+                self.mensajes.append(
+                    f"Solucion no optima: valor {valor:.0f}, cota {cota:.0f}. "
+                    "Con mas tiempo de solver el reparto puede mejorar.")
         else:
             valor = float("inf")
             self.mensajes.append(
