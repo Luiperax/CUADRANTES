@@ -76,6 +76,10 @@ PENALIZACION_REPARTO_F1 = 10_000
 # objetivo individual de fines de semana (20_000), de modo que NO le haga hacer
 # más fines de semana de la cuenta, y muy por debajo de la cobertura.
 RECOMPENSA_MAXIMIZAR_DIAS = 3_000
+# Penalización por partir un fin de semana a caballo entre dos meses (el sábado en
+# un mes y el domingo en el siguiente los hace gente distinta). Alta, pero BLANDA:
+# cede ante el límite de días consecutivos, que protege el descanso.
+PENALIZACION_FINDE_PARTIDO = 6_000
 
 
 class OptimizadorCuadrante:
@@ -117,6 +121,8 @@ class OptimizadorCuadrante:
         self._hay_jefes = any(t.es_jefe_equipo for t in trabajadores)
         # Holguras de la regla de descansos agrupados (se penalizan en el objetivo).
         self._slacks_descanso: list[cp_model.IntVar] = []
+        # Holguras de la continuidad del fin de semana partido entre meses.
+        self._slacks_continuidad: list[cp_model.IntVar] = []
         # Final del mes anterior (continuidad entre meses).
         self._prev_turno: dict[tuple[int, int], bool] = {}
         self._prev_dias_seguidos: dict[int, int] = {}
@@ -303,12 +309,25 @@ class OptimizadorCuadrante:
                         self.modelo.Add(sum(ventana) <= margen_n)
 
             # Fin de semana partido entre meses (mes anterior acaba en sábado).
+            # Es un objetivo BLANDO: si el trabajador ya agotó sus días seguidos al
+            # acabar el mes anterior, manda el descanso y el fin de semana se parte.
             if (self._prev_ultimo_es_sabado
                     and self.config.fin_de_semana.sabado_domingo_mismo_trabajador):
                 vars_domingo = self._variable_trabaja(tid, dia_uno)
-                if vars_domingo:
+                bloqueado_por_descanso = (
+                    seguidos and not trabajador.maximizar_dias and max_dias - seguidos <= 0
+                )
+                if vars_domingo and not bloqueado_por_descanso:
                     trabajo_el_sabado = (tid, 1) in self._prev_turno
-                    self.modelo.Add(sum(vars_domingo) == (1 if trabajo_el_sabado else 0))
+                    objetivo = 1 if trabajo_el_sabado else 0
+                    desvio = self.modelo.NewIntVar(0, 1, f"findepartido_{tid}")
+                    if objetivo:
+                        # No trabajar el domingo tras haber hecho el sábado: penaliza.
+                        self.modelo.Add(desvio >= 1 - sum(vars_domingo))
+                    else:
+                        # Entrar el domingo sin haber hecho el sábado: penaliza.
+                        self.modelo.Add(desvio >= sum(vars_domingo))
+                    self._slacks_continuidad.append(desvio)
 
     def _restriccion_cobertura(self) -> None:
         """Cada puesto requerido debe cubrirse exactamente una vez (con holgura)."""
@@ -542,6 +561,8 @@ class OptimizadorCuadrante:
         # seguidos). Alta, pero cede antes que la cobertura del servicio.
         if self._slacks_descanso:
             terminos.append(PENALIZACION_DESCANSO_AISLADO * sum(self._slacks_descanso))
+        if self._slacks_continuidad:
+            terminos.append(PENALIZACION_FINDE_PARTIDO * sum(self._slacks_continuidad))
 
         # Totales por trabajador.
         turnos_totales: dict[int, cp_model.IntVar] = {}
