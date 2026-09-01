@@ -85,11 +85,13 @@ class PanelConfiguracion(QtWidgets.QDialog):
         self.w_pen_noche_man = self._check(d.penalizar_noche_tras_manana)
         self.w_libres_noche = self._spin(d.dias_libres_tras_noches, 0, 5)
         self.w_min_bloque = self._spin(d.dias_minimos_por_bloque, 1, 15)
+        self.w_max_cambios = self._spin(d.max_cambios_dia_noche, 0, 10)
         f.addRow("Máx. días consecutivos:", self.w_max_dias)
         f.addRow("Máx. noches consecutivas:", self.w_max_noches)
         f.addRow("Penalizar noche tras mañana:", self.w_pen_noche_man)
         f.addRow("Días libres tras bloque de noches:", self.w_libres_noche)
         f.addRow("Días mínimos por bloque de mañanas/noches:", self.w_min_bloque)
+        f.addRow("Máx. cambios mañana/noche al mes (0 = sin límite):", self.w_max_cambios)
         return w
 
     def _pestana_fines(self) -> QtWidgets.QWidget:
@@ -146,6 +148,7 @@ class PanelConfiguracion(QtWidgets.QDialog):
             "evitar_cambios_bruscos": "Evitar cambios bruscos",
             "agrupar_dia_noche": "Agrupar días y noches en bloques",
             "bloques_minimos": "Longitud mínima de los bloques",
+            "limite_cambios_fase": "Tope de cambios mañana/noche al mes",
             "adaptacion_vacaciones": "Adaptación de vacaciones",
             "tener_en_cuenta_historico": "Peso de la memoria histórica",
         }
@@ -172,6 +175,7 @@ class PanelConfiguracion(QtWidgets.QDialog):
         c.descanso.penalizar_noche_tras_manana = self.w_pen_noche_man.isChecked()
         c.descanso.dias_libres_tras_noches = self.w_libres_noche.value()
         c.descanso.dias_minimos_por_bloque = self.w_min_bloque.value()
+        c.descanso.max_cambios_dia_noche = self.w_max_cambios.value()
 
         c.fin_de_semana.sabado_domingo_mismo_trabajador = self.w_sd_mismo.isChecked()
         c.fin_de_semana.fines_semana_objetivo_min = self.w_fs_min.value()

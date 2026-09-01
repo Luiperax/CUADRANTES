@@ -760,7 +760,9 @@ class OptimizadorCuadrante:
         #     —una noche suelta entre mañanas— obliga a cambiar el horario de sueño
         #     para un único turno, que es justo el vaivén que se quiere evitar.
         min_bloque = max(1, self.config.descanso.dias_minimos_por_bloque)
-        if pesos.agrupar_dia_noche or (pesos.bloques_minimos and min_bloque > 1):
+        max_cambios = self.config.descanso.max_cambios_dia_noche
+        if (pesos.agrupar_dia_noche or (pesos.bloques_minimos and min_bloque > 1)
+                or (max_cambios and pesos.limite_cambios_fase)):
             for trabajador in self.trabajadores:
                 fases: dict[int, cp_model.IntVar] = {}
                 for dia in self.calendario.dias:
@@ -799,6 +801,18 @@ class OptimizadorCuadrante:
                 if pesos.agrupar_dia_noche:
                     for cambio in cambios:
                         terminos.append(pesos.agrupar_dia_noche * cambio)
+
+                # Tope de cambios de horario dentro del mes. Con 1, al trabajador
+                # le queda una parte del mes entera de noches y otra entera de
+                # mañanas. No se cuenta «cambio_ini» (el enlace con el mes
+                # anterior): si contara, a quien llega cambiado del mes previo le
+                # tocaría pasar el mes entero en un solo horario.
+                internos = cambios[1:] if fase_previa is not None and dias_fase else cambios
+                if max_cambios and pesos.limite_cambios_fase and internos:
+                    exceso = self.modelo.NewIntVar(
+                        0, len(internos), f"excesocambios_{trabajador.id}")
+                    self.modelo.Add(sum(internos) <= max_cambios + exceso)
+                    terminos.append(pesos.limite_cambios_fase * exceso)
 
                 # Longitud mínima de bloque. Dos cambios de fase separados por menos
                 # de «min_bloque» días dejan en medio un bloque más corto que el

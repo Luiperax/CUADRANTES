@@ -37,6 +37,13 @@ class ParametrosDescanso:
     # con 10 vigilantes: con 3 quedaban 5 bloques de uno o dos turnos; con 5 solo
     # quedan 2, y además bajan los cambios de horario del mes (19 -> 15).
     dias_minimos_por_bloque: int = 5
+    # Máximo de cambios de horario (mañana <-> noche) que puede sufrir un
+    # trabajador dentro del mes. Con 1 el mes le queda partido en dos tramos: una
+    # parte entera de noches y otra entera de mañanas, sin volver a tocarle el
+    # ritmo de sueño. Con 0 no se limita (solo actúan los bloques mínimos). No
+    # cuenta el enlace con el mes anterior, para no obligar a pasar el mes entero
+    # en un único horario.
+    max_cambios_dia_noche: int = 1
 
 
 @dataclass
@@ -122,6 +129,12 @@ class PesosObjetivos:
     # más que el equilibrio de horas (que se cuenta POR HORA: mover un turno son
     # 12 h = 1200) para que el motor no rompa un bloque por cuadrar unas horas.
     bloques_minimos: int = 2000
+    # Penalización por cada cambio de horario que un trabajador tenga POR ENCIMA
+    # de «max_cambios_dia_noche». Es lo que fuerza el mes partido en dos tramos.
+    # Se deja como objetivo blando —no como restricción dura— para que el motor
+    # pueda saltárselo antes que dejar un puesto sin cubrir. Debe pesar más que el
+    # reparto de noches (2500), o el motor troceará los bloques para cuadrarlas.
+    limite_cambios_fase: int = 5000
     # Procurar días libres agrupados justo antes o después de las vacaciones.
     # Objetivo blando: se intenta, pero cede ante la cobertura y el equilibrio de
     # horas si hiciera falta.
