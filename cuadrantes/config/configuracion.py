@@ -86,6 +86,11 @@ class PesosObjetivos:
     """
 
     equilibrio_horas: int = 100
+    # Desviación de CADA trabajador respecto al reparto medio de horas. El peso
+    # «equilibrio_horas» solo mide el rango (máximo menos mínimo), que no aprieta a
+    # quien queda en medio; este reparte de verdad. Se mide POR HORA de desviación
+    # y por persona, así que un valor alto rompería los bloques de mañana/noche
+    # (que cuestan 5000): con 90, corregir una jornada de 12 h vale 1080.
     equilibrio_horas_extra: int = 90
     # Reparto de noches. Debe pesar en el mismo orden que la agrupacion de
     # bloques dia/noche: si se queda muy por debajo, el motor agrupa metiendo

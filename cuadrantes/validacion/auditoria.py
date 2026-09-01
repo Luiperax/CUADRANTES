@@ -153,19 +153,25 @@ class Auditor:
                               motivo="Se respetan todas las restricciones individuales.")
 
     def _regla_equilibrio(
-        self, atributo: str, nombre: str, tolerancia: float, solo_nocturnos: bool = False
+        self, atributo: str, nombre: str, tolerancia: float, solo_nocturnos: bool = False,
+        excluir_maximizadores: bool = False,
     ) -> ResultadoRegla:
         """Comprueba el equilibrio de una magnitud entre los trabajadores activos.
 
         :param solo_nocturnos: si es ``True`` solo se consideran trabajadores
             habilitados para hacer noches (evita penalizar el reparto por quienes
             tienen prohibido el turno nocturno, como Luis o Fernando).
+        :param excluir_maximizadores: si es ``True`` se deja fuera a quien ha
+            pedido trabajar el máximo de días («maximizar_dias»). El motor tampoco
+            lo incluye en el reparto de horas, así que contarlo aquí daría un aviso
+            permanente por una decisión voluntaria del propio trabajador.
         """
         valores = {
             tid: getattr(r, atributo)
             for tid, r in self.resumenes.items()
             if self.trabajadores.get(tid) and self._participa(tid)
             and (not solo_nocturnos or self.trabajadores[tid].puede_hacer_noches)
+            and (not excluir_maximizadores or not self.trabajadores[tid].maximizar_dias)
         }
         if not valores:
             return ResultadoRegla(nombre, EstadoRegla.CUMPLE)
@@ -431,8 +437,10 @@ class Auditor:
         reglas = [
             self._regla_cobertura(),
             self._regla_restricciones_individuales(),
-            self._regla_equilibrio("horas_trabajadas", "Horas ordinarias", tolerancia=24),
-            self._regla_equilibrio("horas_extra", "Horas extraordinarias", tolerancia=24),
+            self._regla_equilibrio("horas_trabajadas", "Horas ordinarias", tolerancia=24,
+                                   excluir_maximizadores=True),
+            self._regla_equilibrio("horas_extra", "Horas extraordinarias", tolerancia=24,
+                                   excluir_maximizadores=True),
             self._regla_equilibrio("numero_noches", "Noches", tolerancia=3, solo_nocturnos=True),
             # Los festivos se equilibran a lo largo del AÑO (memoria histórica), no
             # mes a mes; por eso la tolerancia mensual es holgada: aquí solo se da

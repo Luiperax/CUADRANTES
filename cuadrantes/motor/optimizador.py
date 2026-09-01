@@ -634,7 +634,25 @@ class OptimizadorCuadrante:
             )
             carga_horas[trabajador.id] = carga
 
-        terminos.append(pesos.equilibrio_horas * termino_rango(carga_horas, cota_horas, "horas"))
+        # Quien pide trabajar el máximo de días («maximizar_dias») queda fuera del
+        # reparto de horas: se ha ofrecido voluntariamente a cargar más, así que
+        # incluirlo dispararía el rango y arrastraría al resto hacia arriba.
+        ids_horas = [t.id for t in self.trabajadores if not t.maximizar_dias] or ids
+
+        terminos.append(pesos.equilibrio_horas * termino_rango(
+            carga_horas, cota_horas, "horas", ids_subconjunto=ids_horas))
+
+        # El rango (máximo menos mínimo) solo aprieta a los dos extremos: quien
+        # queda en medio puede desviarse cuanto quiera sin coste. Para que el
+        # reparto sea parejo de verdad se penaliza además la desviación de CADA
+        # trabajador respecto a un objetivo común, que el propio motor elige.
+        if pesos.equilibrio_horas_extra and len(ids_horas) >= 2:
+            objetivo_horas = self.modelo.NewIntVar(0, cota_horas, "objetivo_horas")
+            for trabajador_id in ids_horas:
+                desvio = self.modelo.NewIntVar(0, cota_horas, f"desviohoras_{trabajador_id}")
+                self.modelo.Add(desvio >= carga_horas[trabajador_id] - objetivo_horas)
+                self.modelo.Add(desvio >= objetivo_horas - carga_horas[trabajador_id])
+                terminos.append(pesos.equilibrio_horas_extra * desvio)
         terminos.append(pesos.equilibrio_noches * termino_rango(
             noches_totales, max_turnos, "noches", ids_subconjunto=ids_noche))
         terminos.append(pesos.equilibrio_fines_semana * termino_rango(
