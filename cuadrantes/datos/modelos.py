@@ -66,6 +66,13 @@ class Trabajador:
     # semana, será de noche. Entre semana no le afecta.
     finde_solo_noche: bool = False
 
+    # Cuando el reparto de horas no cuadra exacto (los turnos son de 12 h y no
+    # siempre hay un número redondo por persona), el sobrante se le asigna a él.
+    # Queda fuera del equilibrio de horas y se le exige no quedar por debajo de
+    # ningún compañero, de modo que la desigualdad inevitable recae siempre en
+    # quien se ha ofrecido a asumirla, nunca en el resto.
+    absorbe_exceso: bool = False
+
     # Preferencias (objetivos blandos).
     prefiere_turno_dia: bool = False
     prefiere_turno_noche: bool = False

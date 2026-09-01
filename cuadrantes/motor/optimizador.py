@@ -634,10 +634,12 @@ class OptimizadorCuadrante:
             )
             carga_horas[trabajador.id] = carga
 
-        # Quien pide trabajar el máximo de días («maximizar_dias») queda fuera del
-        # reparto de horas: se ha ofrecido voluntariamente a cargar más, así que
-        # incluirlo dispararía el rango y arrastraría al resto hacia arriba.
-        ids_horas = [t.id for t in self.trabajadores if not t.maximizar_dias] or ids
+        # Quedan fuera del reparto de horas quienes se han ofrecido a cargar más:
+        # el que pide trabajar el máximo de días («maximizar_dias») y el que asume
+        # el sobrante («absorbe_exceso»). Incluirlos dispararía el rango y
+        # arrastraría al resto hacia arriba.
+        ids_horas = [t.id for t in self.trabajadores
+                     if not t.maximizar_dias and not t.absorbe_exceso] or ids
 
         terminos.append(pesos.equilibrio_horas * termino_rango(
             carga_horas, cota_horas, "horas", ids_subconjunto=ids_horas))
@@ -653,6 +655,27 @@ class OptimizadorCuadrante:
                 self.modelo.Add(desvio >= carga_horas[trabajador_id] - objetivo_horas)
                 self.modelo.Add(desvio >= objetivo_horas - carga_horas[trabajador_id])
                 terminos.append(pesos.equilibrio_horas_extra * desvio)
+        # Quien «absorbe_exceso» carga con la parte que no se puede repartir a
+        # partes iguales: se le exige no quedar por debajo de ningún compañero. Así
+        # el sobrante recae siempre en él y el resto queda parejo. Es un objetivo
+        # blando: cede antes que dejar un puesto sin cubrir.
+        absorbentes = [t.id for t in self.trabajadores if t.absorbe_exceso]
+        if pesos.absorber_exceso and absorbentes and len(ids) > 1:
+            for absorbente in absorbentes:
+                otros = [i for i in ids if i != absorbente]
+                if not otros:
+                    continue
+                # Un único término contra el MÁXIMO de los demás. Penalizar contra
+                # cada compañero por separado multiplicaría el peso por el tamaño
+                # de la plantilla y empujaría al absorbente muy por encima, en vez
+                # de dejarle solo el sobrante.
+                tope_otros = self.modelo.NewIntVar(0, cota_horas, f"topeotros_{absorbente}")
+                for otro in otros:
+                    self.modelo.Add(tope_otros >= carga_horas[otro])
+                falta = self.modelo.NewIntVar(0, cota_horas, f"faltahoras_{absorbente}")
+                self.modelo.Add(falta >= tope_otros - carga_horas[absorbente])
+                terminos.append(pesos.absorber_exceso * falta)
+
         terminos.append(pesos.equilibrio_noches * termino_rango(
             noches_totales, max_turnos, "noches", ids_subconjunto=ids_noche))
         terminos.append(pesos.equilibrio_fines_semana * termino_rango(

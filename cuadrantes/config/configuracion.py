@@ -96,6 +96,11 @@ class PesosObjetivos:
     # bloques dia/noche: si se queda muy por debajo, el motor agrupa metiendo
     # todas las noches del mes a una sola persona.
     equilibrio_noches: int = 500
+    # Penalización por cada hora en que quien tiene «absorbe_exceso» queda POR
+    # DEBAJO de un compañero. Es lo que hace que el sobrante del reparto recaiga
+    # siempre en quien se ha ofrecido a asumirlo. Se mide por hora y por pareja de
+    # trabajadores, así que basta un valor moderado para que domine.
+    absorber_exceso: int = 300
     equilibrio_fines_semana: int = 80
     # Equilibrio ANUAL de festivos: reparte los festivos trabajados de forma pareja
     # entre trabajadores teniendo en cuenta el histórico (festivos ya trabajados).
