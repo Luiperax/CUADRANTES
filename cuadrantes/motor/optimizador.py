@@ -755,7 +755,12 @@ class OptimizadorCuadrante:
         #     libres quedan libres y sirven de transición. Se penaliza cada CAMBIO
         #     de fase, de modo que lo barato es hacer una parte del mes de día y
         #     otra de noche (los descansos intermedios no rompen el bloque).
-        if pesos.agrupar_dia_noche:
+        #     Además de contar los cambios, se exige que cada bloque dure un
+        #     mínimo de días («dias_minimos_por_bloque»): un bloque de un solo día
+        #     —una noche suelta entre mañanas— obliga a cambiar el horario de sueño
+        #     para un único turno, que es justo el vaivén que se quiere evitar.
+        min_bloque = max(1, self.config.descanso.dias_minimos_por_bloque)
+        if pesos.agrupar_dia_noche or (pesos.bloques_minimos and min_bloque > 1):
             for trabajador in self.trabajadores:
                 fases: dict[int, cp_model.IntVar] = {}
                 for dia in self.calendario.dias:
@@ -777,6 +782,7 @@ class OptimizadorCuadrante:
                     if (trabajador.id, atras) in self._prev_turno:
                         fase_previa = self._prev_turno[(trabajador.id, atras)]
                         break
+                cambios: list[cp_model.IntVar] = []
                 if fase_previa is not None and dias_fase:
                     primera = fases[dias_fase[0]]
                     cambio_ini = self.modelo.NewBoolVar(f"cambiofase_ini_{trabajador.id}")
@@ -784,12 +790,28 @@ class OptimizadorCuadrante:
                         self.modelo.Add(cambio_ini >= 1 - primera)
                     else:                                 # venía de día
                         self.modelo.Add(cambio_ini >= primera)
-                    terminos.append(pesos.agrupar_dia_noche * cambio_ini)
+                    cambios.append(cambio_ini)
                 for anterior, siguiente in zip(dias_fase, dias_fase[1:]):
                     cambio = self.modelo.NewBoolVar(f"cambiofase_{trabajador.id}_{anterior}")
                     self.modelo.Add(cambio >= fases[siguiente] - fases[anterior])
                     self.modelo.Add(cambio >= fases[anterior] - fases[siguiente])
-                    terminos.append(pesos.agrupar_dia_noche * cambio)
+                    cambios.append(cambio)
+                if pesos.agrupar_dia_noche:
+                    for cambio in cambios:
+                        terminos.append(pesos.agrupar_dia_noche * cambio)
+
+                # Longitud mínima de bloque. Dos cambios de fase separados por menos
+                # de «min_bloque» días dejan en medio un bloque más corto que el
+                # mínimo, así que en cada ventana de ese tamaño solo se admite un
+                # cambio. Es un objetivo blando (con holgura penalizada): cede si la
+                # cobertura del servicio no deja otra opción.
+                if pesos.bloques_minimos and min_bloque > 1:
+                    for inicio in range(len(cambios) - min_bloque + 1):
+                        ventana = cambios[inicio:inicio + min_bloque]
+                        holgura = self.modelo.NewIntVar(
+                            0, min_bloque - 1, f"bloquecorto_{trabajador.id}_{inicio}")
+                        self.modelo.Add(sum(ventana) <= 1 + holgura)
+                        terminos.append(pesos.bloques_minimos * holgura)
 
         # (7) Reparto del F1 de mañana en días laborables entre los jefes de equipo:
         # a partes iguales y, cuando el número no es par, el día de más para el jefe

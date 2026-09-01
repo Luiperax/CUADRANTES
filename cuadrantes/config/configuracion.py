@@ -29,6 +29,14 @@ class ParametrosDescanso:
     max_noches_consecutivas: int = 4        # Evitar secuencias largas de noches.
     penalizar_noche_tras_manana: bool = True  # Evitar cambio brusco mañana->noche.
     dias_libres_tras_noches: int = 1        # Descanso recomendado tras bloque de noches.
+    # Longitud mínima (en días) de un bloque de mañanas o de noches. Evita los
+    # bloques de un solo día —una noche suelta entre mañanas, o al revés—, que
+    # obligan a cambiar el horario de sueño para un único turno. Los días libres
+    # cuentan dentro del bloque: lo que se mide es cuánto tiempo seguido se
+    # mantiene el mismo horario, no cuántos turnos se hacen. Medido sobre octubre
+    # con 10 vigilantes: con 3 quedaban 5 bloques de uno o dos turnos; con 5 solo
+    # quedan 2, y además bajan los cambios de horario del mes (19 -> 15).
+    dias_minimos_por_bloque: int = 5
 
 
 @dataclass
@@ -107,6 +115,13 @@ class PesosObjetivos:
     # pero una persona con 17 noches; 800 (con equilibrio_noches=500) -> 12
     # cambios y ninguna por encima de 9 noches.
     agrupar_dia_noche: int = 800
+    # Penalización por cada día que le falta a un bloque para llegar al mínimo
+    # («dias_minimos_por_bloque»). Complementa a «agrupar_dia_noche»: aquel reduce
+    # el NÚMERO de cambios de horario y este cuida que cada bloque sea lo bastante
+    # largo, que es lo que de verdad evita el vaivén de horas de sueño. Debe pesar
+    # más que el equilibrio de horas (que se cuenta POR HORA: mover un turno son
+    # 12 h = 1200) para que el motor no rompa un bloque por cuadrar unas horas.
+    bloques_minimos: int = 2000
     # Procurar días libres agrupados justo antes o después de las vacaciones.
     # Objetivo blando: se intenta, pero cede ante la cobertura y el equilibrio de
     # horas si hiciera falta.
