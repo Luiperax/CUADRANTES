@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS trabajadores (
     maximizar_dias             INTEGER NOT NULL DEFAULT 0,
     finde_solo_noche           INTEGER NOT NULL DEFAULT 0,
     absorbe_exceso             INTEGER NOT NULL DEFAULT 0,
+    max_dias_seguidos_preferido INTEGER,
     prefiere_turno_dia         INTEGER NOT NULL DEFAULT 0,
     prefiere_turno_noche       INTEGER NOT NULL DEFAULT 0,
     notas                      TEXT    NOT NULL DEFAULT ''
@@ -184,6 +185,10 @@ class BaseDatos:
         if "absorbe_exceso" not in columnas:
             self.conexion.execute(
                 "ALTER TABLE trabajadores ADD COLUMN absorbe_exceso INTEGER NOT NULL DEFAULT 0"
+            )
+        if "max_dias_seguidos_preferido" not in columnas:
+            self.conexion.execute(
+                "ALTER TABLE trabajadores ADD COLUMN max_dias_seguidos_preferido INTEGER"
             )
 
     @contextmanager

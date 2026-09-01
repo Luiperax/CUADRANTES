@@ -61,6 +61,7 @@ class RepositorioTrabajadores:
             maximizar_dias=bool(fila["maximizar_dias"]),
             finde_solo_noche=bool(fila["finde_solo_noche"]),
             absorbe_exceso=bool(fila["absorbe_exceso"]),
+            max_dias_seguidos_preferido=fila["max_dias_seguidos_preferido"],
             prefiere_turno_dia=bool(fila["prefiere_turno_dia"]),
             prefiere_turno_noche=bool(fila["prefiere_turno_noche"]),
             notas=fila["notas"],
@@ -80,6 +81,7 @@ class RepositorioTrabajadores:
             int(trabajador.maximizar_dias),
             int(trabajador.finde_solo_noche),
             int(trabajador.absorbe_exceso),
+            trabajador.max_dias_seguidos_preferido,
             int(trabajador.prefiere_turno_dia),
             int(trabajador.prefiere_turno_noche),
             trabajador.notas,
@@ -91,8 +93,8 @@ class RepositorioTrabajadores:
                     " puestos_diurnos_permitidos, puestos_nocturnos_permitidos,"
                     " puede_hacer_noches, fines_semana_exactos, es_jefe_equipo,"
                     " prioridad_jefe, maximizar_dias, finde_solo_noche, absorbe_exceso,"
-                    " prefiere_turno_dia, prefiere_turno_noche, notas)"
-                    " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    " max_dias_seguidos_preferido, prefiere_turno_dia, prefiere_turno_noche, notas)"
+                    " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     datos,
                 )
                 trabajador.id = cur.lastrowid
@@ -103,7 +105,8 @@ class RepositorioTrabajadores:
                     " puestos_diurnos_permitidos=?, puestos_nocturnos_permitidos=?,"
                     " puede_hacer_noches=?, fines_semana_exactos=?, es_jefe_equipo=?,"
                     " prioridad_jefe=?, maximizar_dias=?, finde_solo_noche=?, absorbe_exceso=?,"
-                    " prefiere_turno_dia=?, prefiere_turno_noche=?, notas=?"
+                    " max_dias_seguidos_preferido=?, prefiere_turno_dia=?,"
+                    " prefiere_turno_noche=?, notas=?"
                     " WHERE id=?",
                     datos + (trabajador.id,),
                 )

@@ -101,6 +101,10 @@ class PesosObjetivos:
     # siempre en quien se ha ofrecido a asumirlo. Se mide por hora y por pareja de
     # trabajadores, así que basta un valor moderado para que domine.
     absorber_exceso: int = 300
+    # Penalización por cada día que un trabajador encadena por encima de su límite
+    # personal («max_dias_seguidos_preferido»), que es más estricto que el máximo
+    # general del convenio. Objetivo blando: cede ante la cobertura del servicio.
+    limite_dias_seguidos_individual: int = 700
     equilibrio_fines_semana: int = 80
     # Equilibrio ANUAL de festivos: reparte los festivos trabajados de forma pareja
     # entre trabajadores teniendo en cuenta el histórico (festivos ya trabajados).
@@ -171,6 +175,11 @@ class Configuracion:
     # Reserva del puesto F1 de mañana (MT-F1) a los jefes de equipo en días
     # laborables. En fin de semana o festivo ese puesto lo puede hacer cualquiera.
     reservar_f1_manana_a_jefes: bool = True
+
+    # El jefe de equipo con MAYOR «prioridad_jefe» hace ESTRICTAMENTE más F1 de
+    # mañana que el otro, no solo el día suelto cuando el reparto es impar (que es
+    # lo que ocurría antes: con un número par de laborables acababan empatados).
+    f1_jefe_prioritario_estricto: bool = True
 
     # Horas de cómputo que aporta cada día de ausencia computable (vacaciones,
     # permiso retribuido, formación). Reduce el cómputo mensual del trabajador para

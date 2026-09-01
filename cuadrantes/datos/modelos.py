@@ -61,6 +61,11 @@ class Trabajador:
     # y de noches se siguen respetando siempre.
     maximizar_dias: bool = False
 
+    # Límite BLANDO de días seguidos para este trabajador, por debajo del máximo
+    # general. Sirve para quien prefiere no encadenar tantos días aunque el
+    # convenio lo permita. ``None`` = se rige solo por el máximo general.
+    max_dias_seguidos_preferido: int | None = None
+
     # Si trabaja en fin de semana (sábado o domingo), solo puede hacerlo de noche.
     # Es decir: en fin de semana no se le asignan turnos diurnos; si le toca fin de
     # semana, será de noche. Entre semana no le afecta.

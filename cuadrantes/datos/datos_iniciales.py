@@ -36,6 +36,7 @@ class _PlantillaTrabajador:
     maximizar_dias: bool = False
     finde_solo_noche: bool = False
     absorbe_exceso: bool = False
+    max_dias_seguidos_preferido: int | None = None
     notas: str = ""
 
     def a_trabajador(self) -> Trabajador:
@@ -50,6 +51,7 @@ class _PlantillaTrabajador:
             maximizar_dias=self.maximizar_dias,
             finde_solo_noche=self.finde_solo_noche,
             absorbe_exceso=self.absorbe_exceso,
+            max_dias_seguidos_preferido=self.max_dias_seguidos_preferido,
             notas=self.notas,
         )
 
@@ -67,8 +69,10 @@ EQUIPO_ACTUAL: list[_PlantillaTrabajador] = [
     _PlantillaTrabajador(
         "FERNANDO CEMBRERO ANTOLÍN", set(_TODOS), set(), puede_hacer_noches=False,
         fines_semana_exactos=1, es_jefe_equipo=True, prioridad_jefe=1,
+        max_dias_seguidos_preferido=5,
         notas="Jefe de equipo. Cualquier puesto de mañana. Nunca noches. Un fin de "
-              "semana al mes. F1 de mañana en laborable reservado a jefes."),
+              "semana al mes. F1 de mañana en laborable reservado a jefes. "
+              "Se procura no ponerle seis días seguidos."),
     _PlantillaTrabajador(
         "LUIS PERALTA ROS", set(_TODOS), set(), puede_hacer_noches=False,
         fines_semana_exactos=1, es_jefe_equipo=True, prioridad_jefe=2,
@@ -139,6 +143,7 @@ def sincronizar_equipo(servicio: ServicioCuadrantes) -> dict[str, list[str]]:
             actual.prioridad_jefe = definicion.prioridad_jefe
             actual.finde_solo_noche = definicion.finde_solo_noche
             actual.absorbe_exceso = definicion.absorbe_exceso
+            actual.max_dias_seguidos_preferido = definicion.max_dias_seguidos_preferido
             # 'maximizar_dias' NO se sincroniza: es un ajuste manual y excepcional
             # (por mes) que fija el usuario, no una característica fija del puesto.
             servicio.trabajadores.guardar(actual)

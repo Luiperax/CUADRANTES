@@ -140,6 +140,7 @@ class PanelConfiguracion(QtWidgets.QDialog):
             "equilibrio_horas_extra": "Equilibrio de horas extra",
             "equilibrio_noches": "Equilibrio de noches",
             "absorber_exceso": "Asumir el exceso de horas",
+            "limite_dias_seguidos_individual": "Límite personal de días seguidos",
             "equilibrio_fines_semana": "Equilibrio de fines de semana",
             "equilibrio_festivos": "Equilibrio de festivos (anual)",
             "rotacion_puestos": "Rotación de puestos",

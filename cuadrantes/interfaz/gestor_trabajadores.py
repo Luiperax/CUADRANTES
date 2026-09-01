@@ -61,6 +61,13 @@ class DialogoTrabajador(QtWidgets.QDialog):
         self.w_finde_noche.setToolTip(
             "En sábado y domingo no se le asignan turnos diurnos; solo puede hacer "
             "noches. Entre semana no le afecta.")
+        self.w_max_seguidos = QtWidgets.QSpinBox()
+        self.w_max_seguidos.setRange(0, 15)
+        self.w_max_seguidos.setSpecialValueText("Sin límite propio")
+        self.w_max_seguidos.setValue(self.trabajador.max_dias_seguidos_preferido or 0)
+        self.w_max_seguidos.setToolTip(
+            "Límite propio de días seguidos, más estricto que el máximo general. "
+            "Se intenta respetar, pero cede antes que dejar un puesto sin cubrir.")
         self.w_absorbe = QtWidgets.QCheckBox(
             "Asume las horas de más cuando el reparto no cuadra exacto")
         self.w_absorbe.setChecked(self.trabajador.absorbe_exceso)
@@ -83,6 +90,7 @@ class DialogoTrabajador(QtWidgets.QDialog):
         disp.addRow("Maximizar días:", self.w_maximizar)
         disp.addRow("Fin de semana solo noche:", self.w_finde_noche)
         disp.addRow("Asume el exceso de horas:", self.w_absorbe)
+        disp.addRow("Máx. días seguidos propio:", self.w_max_seguidos)
 
         # Casillas de puestos diurnos y nocturnos.
         self.chk_diurnos = {}
@@ -127,6 +135,7 @@ class DialogoTrabajador(QtWidgets.QDialog):
         t.maximizar_dias = self.w_maximizar.isChecked()
         t.finde_solo_noche = self.w_finde_noche.isChecked()
         t.absorbe_exceso = self.w_absorbe.isChecked()
+        t.max_dias_seguidos_preferido = self.w_max_seguidos.value() or None
         valor_findes = self.w_findes.value()
         t.fines_semana_exactos = None if valor_findes < 0 else valor_findes
         t.prefiere_turno_dia = self.w_pref_dia.isChecked()

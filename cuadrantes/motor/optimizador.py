@@ -123,6 +123,9 @@ class OptimizadorCuadrante:
         self._slacks_descanso: list[cp_model.IntVar] = []
         # Holguras de la continuidad del fin de semana partido entre meses.
         self._slacks_continuidad: list[cp_model.IntVar] = []
+        # Penalizaciones que nacen dentro de los métodos de restricciones (donde no
+        # se tiene a mano la lista de términos del objetivo) y se suman al final.
+        self._penalizaciones_blandas: list = []
         # Final del mes anterior (continuidad entre meses).
         self._prev_turno: dict[tuple[int, int], bool] = {}
         self._prev_dias_seguidos: dict[int, int] = {}
@@ -517,6 +520,22 @@ class OptimizadorCuadrante:
                     if variables:
                         self.modelo.Add(sum(variables) <= max_dias)
 
+            # Límite PERSONAL de días seguidos, más estricto que el general. Es
+            # blando: se penaliza cada día de más, pero cede si el servicio lo exige.
+            propio = trabajador.max_dias_seguidos_preferido
+            peso_propio = self.config.pesos.limite_dias_seguidos_individual
+            if propio and peso_propio and not trabajador.maximizar_dias and propio < max_dias:
+                ventana_p = propio + 1
+                for inicio in range(0, len(dias) - ventana_p + 1):
+                    variables = []
+                    for offset in range(ventana_p):
+                        variables += self._variable_trabaja(trabajador.id, dias[inicio + offset])
+                    if variables:
+                        holgura = self.modelo.NewIntVar(
+                            0, ventana_p, f"seguidospropio_{trabajador.id}_{inicio}")
+                        self.modelo.Add(sum(variables) <= propio + holgura)
+                        self._penalizaciones_blandas.append(peso_propio * holgura)
+
             # Noches consecutivas.
             ventana_n = max_noches + 1
             for inicio in range(0, len(dias) - ventana_n + 1):
@@ -563,6 +582,7 @@ class OptimizadorCuadrante:
             terminos.append(PENALIZACION_DESCANSO_AISLADO * sum(self._slacks_descanso))
         if self._slacks_continuidad:
             terminos.append(PENALIZACION_FINDE_PARTIDO * sum(self._slacks_continuidad))
+        terminos.extend(self._penalizaciones_blandas)
 
         # Totales por trabajador.
         turnos_totales: dict[int, cp_model.IntVar] = {}
@@ -888,14 +908,20 @@ class OptimizadorCuadrante:
                 c = self.modelo.NewIntVar(0, len(laborables) or 1, f"f1lab_{jefe.id}")
                 self.modelo.Add(c == (sum(vars_f1) if vars_f1 else 0))
                 conteo[jefe.id] = c
-            # Para cada par (mayor prioridad, siguiente): el de menor prioridad no
-            # debe superar al de mayor, y el de mayor no debe superarle en más de 1.
+            # Para cada par (mayor prioridad, siguiente): el de mayor prioridad hace
+            # más F1 que el otro. Con «f1_jefe_prioritario_estricto» la diferencia
+            # mínima es de un día (si no, con un número par de laborables acababan
+            # empatados); el margen máximo es de dos días para que no se dispare.
+            minimo = 1 if self.config.f1_jefe_prioritario_estricto else 0
             for superior, inferior in zip(jefes, jefes[1:]):
-                exceso_inferior = self.modelo.NewIntVar(0, len(laborables) or 1, f"f1_exc_{inferior.id}")
-                self.modelo.Add(exceso_inferior >= conteo[inferior.id] - conteo[superior.id])
-                desbalance = self.modelo.NewIntVar(0, len(laborables) or 1, f"f1_des_{superior.id}")
-                self.modelo.Add(desbalance >= conteo[superior.id] - conteo[inferior.id] - 1)
-                terminos.append(PENALIZACION_REPARTO_F1 * (exceso_inferior + desbalance))
+                tope = len(laborables) or 1
+                falta = self.modelo.NewIntVar(0, tope, f"f1_falta_{superior.id}")
+                self.modelo.Add(
+                    falta >= conteo[inferior.id] + minimo - conteo[superior.id])
+                desbalance = self.modelo.NewIntVar(0, tope, f"f1_des_{superior.id}")
+                self.modelo.Add(
+                    desbalance >= conteo[superior.id] - conteo[inferior.id] - minimo - 1)
+                terminos.append(PENALIZACION_REPARTO_F1 * (falta + desbalance))
 
         # (8) Procurar días libres agrupados con las vacaciones: para cada periodo
         # de vacaciones se intenta dejar libres los días inmediatamente anteriores
