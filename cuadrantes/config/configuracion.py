@@ -150,9 +150,12 @@ class PesosObjetivos:
     # reparto de noches (2500), o el motor troceará los bloques para cuadrarlas.
     limite_cambios_fase: int = 5000
     # Procurar días libres agrupados justo antes o después de las vacaciones.
-    # Objetivo blando: se intenta, pero cede ante la cobertura y el equilibrio de
-    # horas si hiciera falta.
-    adaptacion_vacaciones: int = 600
+    # Objetivo blando: se intenta, pero cede ante la cobertura del servicio. Debe
+    # pesar MÁS que mover un turno de sitio (12 h x «equilibrio_horas» = 1200), o
+    # al motor le sale barato romper el descanso previo a unas vacaciones con tal
+    # de cuadrar unas horas: con 600 dejaba a quien empezaba vacaciones el día 2
+    # trabajando la víspera.
+    adaptacion_vacaciones: int = 2500
     # Compensación histórica de HORAS y NOCHES entre meses. A 0, cada mes se
     # equilibra por sí mismo (todos con ~las mismas horas extra), sin arrastrar el
     # desequilibrio de meses anteriores. Los FESTIVOS se equilibran aparte, de
