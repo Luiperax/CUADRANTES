@@ -77,6 +77,33 @@ def _festivos_locales(anio: int, municipio: str) -> list[tuple[date, str]]:
     return []
 
 
+def _trasladar_domingos(
+    nacionales: list[tuple[date, str]], ocupados: set[date]
+) -> list[tuple[date, str]]:
+    """Traslada al lunes siguiente los festivos nacionales que caen en domingo.
+
+    Cuando un festivo nacional cae en domingo, las comunidades pueden sustituirlo
+    por el lunes siguiente, y Madrid lo hace. Por ejemplo, en 2026 Todos los
+    Santos cae el domingo 1 de noviembre y el festivo pasa al lunes 2. Sin esto,
+    el cuadrante trataba como festivo un domingo que ya se cubría como fin de
+    semana, y dejaba el lunes real como un día laborable cualquiera.
+
+    :param ocupados: fechas que ya son festivas por otra vía; si el lunes
+        siguiente ya está ocupado, el festivo se queda donde está.
+    """
+    resultado: list[tuple[date, str]] = []
+    for fecha, descripcion in nacionales:
+        if fecha.weekday() == 6:  # domingo
+            lunes = fecha + timedelta(days=1)
+            if lunes not in ocupados:
+                resultado.append((lunes, f"{descripcion} (trasladado del domingo)"))
+                ocupados.add(lunes)
+                continue
+        resultado.append((fecha, descripcion))
+        ocupados.add(fecha)
+    return resultado
+
+
 def festivos_del_anio(
     anio: int, comunidad: str = "Madrid", municipio: str = "Madrid"
 ) -> list[tuple[date, str]]:
@@ -85,11 +112,14 @@ def festivos_del_anio(
     Incluye festivos nacionales, autonómicos y locales según la comunidad y el
     municipio indicados (por defecto, Comunidad de Madrid y Madrid capital).
     """
-    festivos = (
-        _festivos_nacionales(anio)
-        + _festivos_autonomicos(anio, comunidad)
+    otros = (
+        _festivos_autonomicos(anio, comunidad)
         + _festivos_locales(anio, municipio)
     )
+    # Los nacionales que caen en domingo se trasladan al lunes siguiente, salvo
+    # que ese lunes ya sea festivo por otra vía.
+    ocupados = {fecha for fecha, _ in otros}
+    festivos = _trasladar_domingos(_festivos_nacionales(anio), ocupados) + otros
     # Se eliminan duplicados por fecha (si algún festivo coincidiera) y se ordenan.
     unicos: dict[date, str] = {}
     for fecha, descripcion in festivos:

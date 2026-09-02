@@ -114,6 +114,14 @@ class ServicioCuadrantes:
         self.asegurar_festivos_oficiales(anio - 1)
         trabajadores = self.trabajadores.listar(solo_activos=True)
         ausencias = self.ausencias.listar_por_mes(anio, mes)
+        # También las del mes siguiente: unas vacaciones que empiezan el día 1 o 2
+        # exigen dejar libres los últimos días de ESTE mes, y esa regla no puede
+        # aplicarse si el motor no las ve. Se marcan como «del mes siguiente» por
+        # su fecha, y el motor solo usa de ellas los días que caen en este mes.
+        siguiente = (anio + 1, 1) if mes == 12 else (anio, mes + 1)
+        vistas = {a.id for a in ausencias}
+        ausencias = ausencias + [a for a in self.ausencias.listar_por_mes(*siguiente)
+                                 if a.id not in vistas]
         restricciones = self.restricciones.listar_por_mes(anio, mes)
         festivos = {f.fecha for f in self.festivos.listar_por_mes(anio, mes)}
 

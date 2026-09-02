@@ -547,6 +547,22 @@ class OptimizadorCuadrante:
                 if variables:
                     self.modelo.Add(sum(variables) <= max_noches)
 
+    def _dia_relativo(self, fecha) -> int | None:
+        """Día del mes que se está planificando equivalente a ``fecha``.
+
+        Devuelve el día tal cual si la fecha cae en este mes; un número por encima
+        del último día si cae en el mes siguiente (por ejemplo, el 2 de noviembre
+        es el «día 33» de octubre), de modo que las reglas que cuentan días hacia
+        atrás desde una fecha funcionen aunque esa fecha esté en el mes siguiente.
+        ``None`` si queda demasiado lejos para importar.
+        """
+        if fecha.year == self.anio and fecha.month == self.mes:
+            return fecha.day
+        siguiente = (self.anio + 1, 1) if self.mes == 12 else (self.anio, self.mes + 1)
+        if (fecha.year, fecha.month) == siguiente:
+            return self.calendario.numero_dias + fecha.day
+        return None
+
     def _restriccion_vacaciones(self) -> None:
         """Evita noche antes de vacaciones y noche al reincorporarse."""
         params = self.config.vacaciones
@@ -937,23 +953,34 @@ class OptimizadorCuadrante:
                 if ausencia.trabajador_id not in self._mapa_trabajadores:
                     continue
                 tid = ausencia.trabajador_id
+                # Los días previos se cuentan hacia atrás desde el inicio de las
+                # vacaciones AUNQUE ese inicio caiga en el mes siguiente: unas
+                # vacaciones que arrancan el día 2 exigen dejar libre el final de
+                # este mes. Se traduce la fecha a un número de día relativo a este
+                # mes (0 o negativo si cae ya en el siguiente).
+                inicio_rel = self._dia_relativo(ausencia.fecha_inicio)
+                fin_rel = self._dia_relativo(ausencia.fecha_fin)
                 antes_vars: list = []
-                if ausencia.fecha_inicio.month == self.mes:
-                    inicio = ausencia.fecha_inicio.day
+                if inicio_rel is not None:
                     for k in range(1, v_antes + 1):
-                        d = inicio - k
+                        d = inicio_rel - k
                         if 1 <= d <= self.calendario.numero_dias:
                             antes_vars += self._variable_trabaja(tid, d)
                 despues_vars: list = []
-                if ausencia.fecha_fin.month == self.mes:
-                    fin = ausencia.fecha_fin.day
+                if fin_rel is not None:
                     for k in range(1, v_despues + 1):
-                        d = fin + k
+                        d = fin_rel + k
                         if 1 <= d <= self.calendario.numero_dias:
                             despues_vars += self._variable_trabaja(tid, d)
-                # Si algún lado no tiene días laborables en el mes (borde de mes u
-                # otra ausencia contigua), se considera ya «libre» por ese lado.
+                # Si un lado cae entero fuera del mes, el otro deja de ser opcional:
+                # se exige ese, en vez de darlo por bueno como antes.
+                if not antes_vars and not despues_vars:
+                    continue
                 if not antes_vars or not despues_vars:
+                    unico = antes_vars or despues_vars
+                    n = self.modelo.NewIntVar(0, len(unico), f"vac_unico_{tid}_{idx}")
+                    self.modelo.Add(n == sum(unico))
+                    terminos.append(pesos.adaptacion_vacaciones * n)
                     continue
                 na = self.modelo.NewIntVar(0, v_antes, f"vac_antes_{tid}_{idx}")
                 self.modelo.Add(na == sum(antes_vars))
