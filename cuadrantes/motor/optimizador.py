@@ -94,6 +94,7 @@ class OptimizadorCuadrante:
         ausencias: list[Ausencia] | None = None,
         restricciones: list[RestriccionTemporal] | None = None,
         festivos: set[date] | None = None,
+        festivos_siguientes: set[date] | None = None,
         carga_historica: dict[int, CargaHistorica] | None = None,
         cuadrante_previo: Cuadrante | None = None,
     ):
@@ -104,6 +105,7 @@ class OptimizadorCuadrante:
         self.ausencias = ausencias or []
         self.restricciones = restricciones or []
         self.calendario = CalendarioMes(anio, mes, festivos or set())
+        self.festivos_siguientes = festivos_siguientes or set()
         self.carga_historica = carga_historica or {}
         self.cuadrante_previo = cuadrante_previo
 
@@ -500,21 +502,29 @@ class OptimizadorCuadrante:
         """
         if not self.config.fin_de_semana.noche_viernes_requiere_finde_completo:
             return
-        for sabado, domingo in self.calendario.fines_de_semana():
+        # Se recorren TODOS los sábados, no solo los fines de semana completos
+        # dentro del mes: cuando el mes acaba en sábado, el domingo cae ya en el
+        # siguiente y ese fin de semana no aparecía en la lista de pares, de modo
+        # que el viernes anterior quedaba sin ninguna atadura. En ese caso se liga
+        # el viernes al sábado (el domingo lo encadena el mes siguiente con la
+        # regla de continuidad del fin de semana partido).
+        for sabado in self.calendario.sabados():
             viernes = sabado - 1
             if viernes < 1:
                 continue  # El viernes cae en el mes anterior; no se puede ligar.
+            domingo = sabado + 1 if sabado + 1 <= self.calendario.numero_dias else None
             for trabajador in self.trabajadores:
                 noche_vie = self._variable_trabaja(trabajador.id, viernes, solo_noche=True)
                 if not noche_vie:
                     continue
                 noche_sab = self._variable_trabaja(trabajador.id, sabado, solo_noche=True)
-                noche_dom = self._variable_trabaja(trabajador.id, domingo, solo_noche=True)
-                # noche_viernes -> noche_sábado  y  noche_viernes -> noche_domingo.
-                # Si no hay variable de noche el sábado o el domingo (p. ej. no
-                # disponible), la suma vale 0 y el viernes de noche queda prohibido.
+                # noche_viernes -> noche_sábado. Si no hay variable de noche el
+                # sábado (p. ej. no disponible), la suma vale 0 y el viernes de
+                # noche queda prohibido.
                 self.modelo.Add(sum(noche_vie) <= (sum(noche_sab) if noche_sab else 0))
-                self.modelo.Add(sum(noche_vie) <= (sum(noche_dom) if noche_dom else 0))
+                if domingo is not None:
+                    noche_dom = self._variable_trabaja(trabajador.id, domingo, solo_noche=True)
+                    self.modelo.Add(sum(noche_vie) <= (sum(noche_dom) if noche_dom else 0))
 
     def _restriccion_consecutivos(self) -> None:
         """Limita días y noches consecutivos mediante ventanas deslizantes."""
@@ -795,6 +805,41 @@ class OptimizadorCuadrante:
                         pesos.equilibrio_festivos
                         * fest_hist[trabajador.id]
                         * fest_mes_por_id[trabajador.id])
+
+        # Puente A CABALLO ENTRE MESES: un festivo en los primeros días del mes
+        # siguiente arrastra los últimos días de este (el festivo del lunes 2 de
+        # noviembre forma puente con el domingo 1 y el sábado 31 de octubre). Quien
+        # trabaje esos días acabará haciendo también el festivo, así que se reparten
+        # con el mismo criterio: preferentemente a quien menos festivos lleva del año.
+        from datetime import timedelta as _delta
+        dias_puente_siguiente: list[int] = []
+        for fecha in sorted(self.festivos_siguientes):
+            if self._dia_relativo(fecha) is None:
+                continue
+            # El puente se calcula sobre la FECHA real: el día relativo (33 para el
+            # 2 de noviembre) no existe en el calendario de este mes.
+            dsem = fecha.weekday()
+            if dsem == 0:            # lunes -> sábado, domingo, lunes
+                bloque = [fecha - _delta(days=2), fecha - _delta(days=1), fecha]
+            elif dsem == 4:          # viernes -> viernes, sábado, domingo
+                bloque = [fecha, fecha + _delta(days=1), fecha + _delta(days=2)]
+            else:
+                continue
+            for f in bloque:
+                if (f.year, f.month) == (self.anio, self.mes) and f.day not in dias_puente_siguiente:
+                    dias_puente_siguiente.append(f.day)
+        if dias_puente_siguiente and pesos.equilibrio_festivos:
+            fest_hist_sig = {
+                t.id: (self.carga_historica[t.id].festivos if t.id in self.carga_historica else 0)
+                for t in self.trabajadores
+            }
+            for trabajador in self.trabajadores:
+                if not fest_hist_sig[trabajador.id]:
+                    continue
+                for d in dias_puente_siguiente:
+                    for var in self._variable_trabaja(trabajador.id, d):
+                        terminos.append(
+                            pesos.equilibrio_festivos * fest_hist_sig[trabajador.id] * var)
 
         # (3) Compensación histórica: penaliza asignar turnos a quien más ha
         #     trabajado en meses anteriores (desvío positivo respecto a la media).

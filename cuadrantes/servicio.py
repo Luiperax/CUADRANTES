@@ -124,6 +124,11 @@ class ServicioCuadrantes:
                                  if a.id not in vistas]
         restricciones = self.restricciones.listar_por_mes(anio, mes)
         festivos = {f.fecha for f in self.festivos.listar_por_mes(anio, mes)}
+        # Festivos del mes SIGUIENTE: si uno cae en los primeros días, su puente
+        # se come el final de este mes (p. ej. el festivo del lunes 2 de noviembre
+        # arrastra el sábado 31 de octubre). El motor los necesita para repartir
+        # esos últimos días entre quienes menos festivos llevan del año.
+        festivos_siguientes = {f.fecha for f in self.festivos.listar_por_mes(*siguiente)}
 
         # Memoria histórica de los meses anteriores. Se aportan los festivos de cada
         # mes para contar correctamente quién ha trabajado los festivos del año.
@@ -134,6 +139,7 @@ class ServicioCuadrantes:
         optimizador = OptimizadorCuadrante(
             anio=anio, mes=mes, trabajadores=trabajadores, configuracion=config,
             ausencias=ausencias, restricciones=restricciones, festivos=festivos,
+            festivos_siguientes=festivos_siguientes,
             carga_historica=carga,
             cuadrante_previo=self.cuadrantes.ultima_version(
                 anio - 1 if mes == 1 else anio, 12 if mes == 1 else mes - 1),
