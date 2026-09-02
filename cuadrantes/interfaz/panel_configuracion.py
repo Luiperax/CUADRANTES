@@ -142,6 +142,8 @@ class PanelConfiguracion(QtWidgets.QDialog):
             "absorber_exceso": "Asumir el exceso de horas",
             "limite_dias_seguidos_individual": "Límite personal de días seguidos",
             "equilibrio_fines_semana": "Equilibrio de fines de semana",
+            "exceso_fines_semana": "Pasarse del máximo de fines de semana",
+            "findes_encadenados": "Encadenar findes entre meses",
             "equilibrio_festivos": "Equilibrio de festivos (anual)",
             "rotacion_puestos": "Rotación de puestos",
             "respetar_preferencias": "Respetar preferencias",

@@ -130,6 +130,8 @@ class OptimizadorCuadrante:
         self._prev_turno: dict[tuple[int, int], bool] = {}
         self._prev_dias_seguidos: dict[int, int] = {}
         self._prev_ultimo_es_sabado = False
+        # Trabajadores que hicieron el último fin de semana del mes anterior.
+        self._prev_finde_final: set[int] = set()
         self._preparar_mes_previo()
 
     # ------------------------------------------------------------------
@@ -241,6 +243,19 @@ class OptimizadorCuadrante:
         self._prev_ultimo_es_sabado = (
             _fecha(previo.anio, previo.mes, n_dias_previo).weekday() == 5
         )
+        # Quién trabajó el ÚLTIMO fin de semana del mes anterior, para no
+        # encadenárselo con el primero de este.
+        ultimo_sabado = 0
+        for dia in range(n_dias_previo, 0, -1):
+            if _fecha(previo.anio, previo.mes, dia).weekday() == 5:
+                ultimo_sabado = dia
+                break
+        if ultimo_sabado:
+            for trabajador in self.trabajadores:
+                if any((a := previo.obtener(trabajador.id, d)) and a.es_trabajo
+                       for d in (ultimo_sabado, ultimo_sabado + 1)
+                       if d <= n_dias_previo):
+                    self._prev_finde_final.add(trabajador.id)
         for trabajador in self.trabajadores:
             seguidos = 0
             for atras in range(1, 9):           # últimos 8 días del mes anterior
@@ -803,6 +818,35 @@ class OptimizadorCuadrante:
             exceso = self.modelo.NewIntVar(0, n_sabados, f"exceso_finde_{i}")
             self.modelo.Add(exceso >= fines_totales[i] - tope)
             terminos.append(pesos.equilibrio_fines_semana * 50 * exceso)
+
+        # (4 bis-max) Máximo PREFERENTE de fines de semana, por debajo del tope
+        # duro. Es lo que evita que alguien acabe con tres mientras otros hacen uno.
+        maximo = self.config.fin_de_semana.fines_semana_objetivo_max
+        if maximo and pesos.exceso_fines_semana:
+            for trabajador in self.trabajadores:
+                if trabajador.fines_semana_exactos is not None:
+                    continue
+                sobra = self.modelo.NewIntVar(0, n_sabados, f"sobrafinde_{trabajador.id}")
+                self.modelo.Add(sobra >= fines_totales[trabajador.id] - maximo)
+                terminos.append(pesos.exceso_fines_semana * sobra)
+
+        # (4 quater) No encadenar el último fin de semana del mes anterior con el
+        # primero de este: quien cerró el mes trabajando el fin de semana debería
+        # abrir el siguiente librándolo.
+        if pesos.findes_encadenados and self._prev_finde_final and sabados:
+            primer_sabado = min(sabados)
+            for trabajador in self.trabajadores:
+                if trabajador.id not in self._prev_finde_final:
+                    continue
+                variables = []
+                for d in (primer_sabado, primer_sabado + 1):
+                    if d <= self.calendario.numero_dias:
+                        variables += self._variable_trabaja(trabajador.id, d)
+                if variables:
+                    encadena = self.modelo.NewBoolVar(f"findeencadena_{trabajador.id}")
+                    for var in variables:
+                        self.modelo.Add(encadena >= var)
+                    terminos.append(pesos.findes_encadenados * encadena)
 
         # (4 ter) Mínimo preferente de fines de semana: nadie debería quedarse a 0
         # mientras otros hacen dos o tres. Solo se aplica a quien NO tiene objetivo

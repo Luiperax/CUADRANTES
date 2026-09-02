@@ -52,7 +52,9 @@ class ParametrosFinDeSemana:
 
     sabado_domingo_mismo_trabajador: bool = True  # S y D los hace la misma persona.
     fines_semana_objetivo_min: int = 1            # Mínimo preferente por trabajador.
-    fines_semana_objetivo_max: int = 2            # Máximo preferente por trabajador.
+    # Máximo preferente por trabajador. Por debajo del tope duro: se intenta que
+    # nadie pase de aquí, y solo se supera si el servicio lo exige.
+    fines_semana_objetivo_max: int = 2
     fines_semana_tope_duro: int = 3               # Nunca superar salvo necesidad.
     # Un turno de noche en viernes solo se permite si ese trabajador va a hacer el
     # fin de semana completo de noche (sábado y domingo noche). Evita noches sueltas
@@ -125,6 +127,15 @@ class PesosObjetivos:
     # histórica) y solo ceda ante la cobertura del servicio. Es, en la práctica,
     # una condición casi obligatoria que solo se incumple por imposibilidad real.
     objetivo_finde_individual: int = 20000
+    # Penalización por cada fin de semana por encima del máximo preferente
+    # («fines_semana_objetivo_max»). El ajuste existía en la configuración y en el
+    # panel, pero el motor solo miraba el tope duro, así que el «máximo 2» no se
+    # aplicaba nunca y salía gente con tres.
+    exceso_fines_semana: int = 1500
+    # Penalización por encadenar el último fin de semana de un mes con el primero
+    # del siguiente. Sin esto, el reparto se calcula mes a mes y alguien puede
+    # cerrar octubre trabajando y abrir noviembre igual, dos seguidos de hecho.
+    findes_encadenados: int = 1500
     # Rotación de puestos. Penaliza encadenar el mismo puesto día tras día y
     # acaparar un puesto durante el mes. Estaba declarado pero el motor no lo
     # usaba, así que el reparto de puestos salía por casualidad: había quien
