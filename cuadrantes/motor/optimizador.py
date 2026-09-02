@@ -714,8 +714,31 @@ class OptimizadorCuadrante:
 
         terminos.append(pesos.equilibrio_noches * termino_rango(
             noches_totales, max_turnos, "noches", ids_subconjunto=ids_noche))
+        # Equilibrio ANUAL de fines de semana, igual que el de festivos: se balancea
+        # el total del año (los ya trabajados en meses anteriores más los de este
+        # mes), no solo el mes suelto. Sin esto el reparto se reiniciaba cada mes y
+        # el desequilibrio del año no se corregía nunca: había quien acumulaba
+        # diecinueve fines de semana y quien llevaba dos.
+        fines_hist = {
+            t.id: (self.carga_historica[t.id].fines_semana if t.id in self.carga_historica else 0)
+            for t in self.trabajadores
+        }
+        cota_fines = (len(sabados) or 1) + (max(fines_hist.values()) if fines_hist else 0) + 1
+        carga_fines: dict[int, cp_model.IntVar] = {}
+        for trabajador in self.trabajadores:
+            total_fines = self.modelo.NewIntVar(0, cota_fines, f"finestot_{trabajador.id}")
+            self.modelo.Add(total_fines == fines_totales[trabajador.id] + fines_hist[trabajador.id])
+            carga_fines[trabajador.id] = total_fines
         terminos.append(pesos.equilibrio_fines_semana * termino_rango(
-            fines_totales, len(sabados) or 1, "fines", ids_subconjunto=ids_finde_libre))
+            carga_fines, cota_fines, "fines", ids_subconjunto=ids_finde_libre))
+        # Y, como en los festivos, preferir dar los fines de semana del mes a quien
+        # menos lleva del año: el rango solo mira los dos extremos.
+        for trabajador in self.trabajadores:
+            if trabajador.id in ids_finde_libre and fines_hist[trabajador.id]:
+                terminos.append(
+                    pesos.equilibrio_fines_semana
+                    * fines_hist[trabajador.id]
+                    * fines_totales[trabajador.id])
 
         # Equilibrio ANUAL de festivos: se balancea el total (festivos ya trabajados
         # en meses anteriores + festivos de este mes), de modo que a lo largo del año

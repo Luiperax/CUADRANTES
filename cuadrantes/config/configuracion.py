@@ -105,14 +105,20 @@ class PesosObjetivos:
     # personal («max_dias_seguidos_preferido»), que es más estricto que el máximo
     # general del convenio. Objetivo blando: cede ante la cobertura del servicio.
     limite_dias_seguidos_individual: int = 700
-    equilibrio_fines_semana: int = 80
+    # Reparto de fines de semana, equilibrado a lo largo del AÑO (histórico +
+    # mes en curso), no mes a mes. Con 80 no llegaba a competir con el resto de
+    # objetivos y el desequilibrio anual no se corregía nunca.
+    equilibrio_fines_semana: int = 400
     # Equilibrio ANUAL de festivos: reparte los festivos trabajados de forma pareja
     # entre trabajadores teniendo en cuenta el histórico (festivos ya trabajados).
     # Pesa mucho mas que el resto porque en todo el año solo hay 14 festivos: cada
     # uno cuenta muchisimo en la equidad, mientras que el equilibrio de horas se
     # mide POR HORA. Con 85 el motor daba el festivo a quien ya llevaba 3 con tal
     # de cuadrar unas horas, teniendo libre a quien llevaba 1.
-    equilibrio_festivos: int = 1500
+    # Con 1500 el motor seguia dando el festivo a alguien con tres a cuestas
+    # teniendo libres a companeros con uno, porque otros objetivos del mes
+    # (horas, bloques, fines de semana) sumaban mas que la diferencia.
+    equilibrio_festivos: int = 4000
     # Cumplimiento del objetivo individual de fines de semana (p. ej. Luis y
     # Fernando, jefes de equipo: exactamente uno al mes). Peso muy alto para que
     # domine con claridad al resto de objetivos blandos (incluida la compensación
