@@ -365,7 +365,27 @@ class Auditor:
                               motivo=f"Reparto equilibrado ({detalle}).")
 
     def _regla_rotacion(self) -> ResultadoRegla:
-        # Comprobación ligera: que ningún trabajador polivalente repita siempre el mismo puesto.
+        # Además de quien repite SIEMPRE el mismo puesto, se detectan las rachas
+        # largas: encadenar cinco o más turnos seguidos en el mismo puesto es lo
+        # que en la práctica se percibe como falta de rotación, aunque a lo largo
+        # del mes se hayan tocado dos puestos distintos.
+        rachas: list[str] = []
+        for tid in self.resumenes:
+            trabajador = self.trabajadores.get(tid)
+            if not trabajador or len(trabajador.puestos_diurnos_permitidos) <= 1:
+                continue
+            seq = [
+                a.codigo_puesto()
+                for dia in self.calendario.dias
+                if (a := self.cuadrante.obtener(tid, dia)) and a.es_trabajo
+            ]
+            actual, largo, peor = None, 0, 0
+            for p in seq:
+                largo = largo + 1 if p == actual else 1
+                actual = p
+                peor = max(peor, largo)
+            if peor >= 5:
+                rachas.append(f"{self._nombre(tid)} ({peor} turnos seguidos)")
         monotonos: list[str] = []
         for tid in self.resumenes:
             trabajador = self.trabajadores.get(tid)
@@ -378,12 +398,17 @@ class Auditor:
             }
             if len(puestos) == 1 and self.resumenes[tid].dias_trabajados > 5:
                 monotonos.append(self._nombre(tid))
-        if monotonos:
+        if monotonos or rachas:
+            partes = []
+            if monotonos:
+                partes.append("siempre el mismo puesto: " + ", ".join(monotonos))
+            if rachas:
+                partes.append("rachas largas en el mismo puesto: " + "; ".join(rachas))
             return ResultadoRegla(
                 "Rotación de puestos", EstadoRegla.ADVERTENCIA,
-                motivo="Trabajadores sin rotación de puesto: " + ", ".join(monotonos),
+                motivo="; ".join(partes),
                 solucion_propuesta="Alternar los puestos F1/F2/MO/EX a lo largo del mes.",
-                trabajadores_afectados=monotonos,
+                trabajadores_afectados=monotonos or [r.split(" (")[0] for r in rachas],
             )
         return ResultadoRegla("Rotación de puestos", EstadoRegla.CUMPLE,
                               motivo="La rotación de puestos es adecuada.")

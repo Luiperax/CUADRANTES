@@ -119,7 +119,11 @@ class PesosObjetivos:
     # histórica) y solo ceda ante la cobertura del servicio. Es, en la práctica,
     # una condición casi obligatoria que solo se incumple por imposibilidad real.
     objetivo_finde_individual: int = 20000
-    rotacion_puestos: int = 30
+    # Rotación de puestos. Penaliza encadenar el mismo puesto día tras día y
+    # acaparar un puesto durante el mes. Estaba declarado pero el motor no lo
+    # usaba, así que el reparto de puestos salía por casualidad: había quien
+    # hacía nueve F1 seguidos y luego diez F2 seguidos sin pisar MO ni EX.
+    rotacion_puestos: int = 250
     respetar_preferencias: int = 40
     # Reservado: los descansos agrupados (mínimo dos días libres seguidos, sin
     # máximo) se aplican como restricción del motor, no como peso.
@@ -177,6 +181,10 @@ class Configuracion:
 
     # Reserva del puesto F1 de mañana (MT-F1) a los jefes de equipo en días
     # laborables. En fin de semana o festivo ese puesto lo puede hacer cualquiera.
+    # Turnos como máximo en el MISMO puesto a lo largo del mes antes de empezar a
+    # penalizar. Con 17-19 turnos al mes, 7 reparte entre dos o tres puestos.
+    max_turnos_mismo_puesto: int = 7
+
     reservar_f1_manana_a_jefes: bool = True
 
     # El jefe de equipo con MAYOR «prioridad_jefe» hace ESTRICTAMENTE más F1 de

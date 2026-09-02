@@ -904,6 +904,45 @@ class OptimizadorCuadrante:
                         self.modelo.Add(sum(ventana) <= 1 + holgura)
                         terminos.append(pesos.bloques_minimos * holgura)
 
+        # (6 bis) ROTACIÓN DE PUESTOS. Dos penalizaciones: encadenar el mismo
+        #     puesto en días consecutivos, y acaparar un puesto a lo largo del mes.
+        #     Sin esto el reparto de puestos salía por casualidad (nueve F1
+        #     seguidos y luego diez F2, sin pisar MO ni EX en todo el mes).
+        if pesos.rotacion_puestos:
+            tope_puesto = max(1, self.config.max_turnos_mismo_puesto)
+            # Índice (trabajador, día, puesto) -> variables, para no recorrer todo
+            # el diccionario de variables una vez por combinación.
+            por_tdp: dict[tuple[int, int, Puesto], list] = {}
+            for (t, d, _turno, p), var in self.x.items():
+                por_tdp.setdefault((t, d, p), []).append(var)
+            for trabajador in self.trabajadores:
+                for puesto in Puesto:
+                    usa: dict[int, cp_model.IntVar] = {}
+                    for dia in self.calendario.dias:
+                        variables = por_tdp.get((trabajador.id, dia, puesto))
+                        if not variables:
+                            continue
+                        u = self.modelo.NewBoolVar(
+                            f"usa_{trabajador.id}_{dia}_{puesto.value}")
+                        self.modelo.AddMaxEquality(u, variables)
+                        usa[dia] = u
+                    if not usa:
+                        continue
+                    # (a) mismo puesto dos días seguidos
+                    dias_usa = sorted(usa)
+                    for anterior, siguiente in zip(dias_usa, dias_usa[1:]):
+                        if siguiente - anterior != 1:
+                            continue
+                        repite = self.modelo.NewBoolVar(
+                            f"repite_{trabajador.id}_{anterior}_{puesto.value}")
+                        self.modelo.Add(repite >= usa[anterior] + usa[siguiente] - 1)
+                        terminos.append(pesos.rotacion_puestos * repite)
+                    # (b) acaparar el puesto durante el mes
+                    exceso = self.modelo.NewIntVar(
+                        0, len(dias_usa), f"acapara_{trabajador.id}_{puesto.value}")
+                    self.modelo.Add(exceso >= sum(usa.values()) - tope_puesto)
+                    terminos.append(pesos.rotacion_puestos * exceso)
+
         # (7) Reparto del F1 de mañana en días laborables entre los jefes de equipo:
         # a partes iguales y, cuando el número no es par, el día de más para el jefe
         # de mayor prioridad (por ejemplo, Luis por encima de Fernando).
