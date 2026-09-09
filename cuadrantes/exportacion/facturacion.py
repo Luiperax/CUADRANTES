@@ -121,6 +121,31 @@ def rangos_vacaciones(cuadrante: Cuadrante, trabajadores: dict[int, Trabajador],
     return res
 
 
+_ETIQUETA_SERVICIO = {"RECEPCION": "Recepción", "GARITA": "Garita",
+                      "MOVIL": "Móvil", "EXPLANADA": "Explanada"}
+
+def _texto_refuerzo(ref: dict, mes: str) -> str:
+    """Línea del pie para un refuerzo, con el formato del cuadrante original."""
+    turnos = ref["turnos"]
+    n = len(turnos)
+    ent, sal = turnos[0]["entrada"], turnos[0]["salida"]
+    horario = f"{ent}:00 a {sal:02d}:00"
+    porserv: dict[str, list[int]] = {}
+    for t in turnos:
+        porserv.setdefault(t["servicio"], []).append(t["dia"])
+    partes = []
+    for serv, dias in porserv.items():
+        etiqueta = _ETIQUETA_SERVICIO.get(serv, serv.title())
+        if len(dias) == 1:
+            partes.append(f"{etiqueta} el día {dias[0]}")
+        else:
+            partes.append(f"{etiqueta} los días " +
+                          ", ".join(str(d) for d in dias[:-1]) + f" y {dias[-1]}")
+    plural = "turnos" if n != 1 else "turno"
+    return (f"El VS {ref['nombre']}, realiza {n} {plural} de {horario}. "
+            + ". ".join(partes) + f" de {mes}.")
+
+
 def construir_datos_facturacion(cuadrante: Cuadrante, trabajadores: dict[int, Trabajador],
                                 calendario: CalendarioMes) -> dict:
     """Estructura lógica de la facturación (la usan el Excel y la vista en pantalla).
@@ -130,7 +155,15 @@ def construir_datos_facturacion(cuadrante: Cuadrante, trabajadores: dict[int, Tr
     Cada empleado: ``{'nombre','celdas':[{entrada,salida,suma,vac,finde}...],'total','dif'}``.
     """
     dias = calendario.dias
-    ids = cuadrante.trabajadores_ids or list(trabajadores.keys())
+    todos = cuadrante.trabajadores_ids or list(trabajadores.keys())
+    # Los REFUERZOS (personal eventual que solo viene a cubrir algún turno suelto)
+    # no ocupan fila en las tablas de OT: se resumen al pie, como en el original
+    # del cliente. Se reconocen por estar dados de alta como no activos.
+    def es_refuerzo(tid):
+        t = trabajadores.get(tid)
+        return t is not None and not t.activo
+    ids = [t for t in todos if not es_refuerzo(t)]
+    ids_refuerzo = [t for t in todos if es_refuerzo(t)]
 
     def serv_dia(tid, dia):
         """Servicio de la asignación de un trabajador ese día, o None."""
@@ -173,9 +206,24 @@ def construir_datos_facturacion(cuadrante: Cuadrante, trabajadores: dict[int, Tr
                           "empleados": empleados, "totales_dia": tot_dia, "total": sum(tot_dia)})
     tg = []
     for dia in dias:
-        h = sum(12 for tid in ids if (a := cuadrante.obtener(tid, dia)) and a.es_trabajo)
+        h = sum(12 for tid in todos if (a := cuadrante.obtener(tid, dia)) and a.es_trabajo)
         tg.append(h)
-    return {"servicios": servicios, "total_general_dia": tg, "total_general": sum(tg)}
+    # Turnos de los refuerzos, agrupados por (servicio, turno) para el pie.
+    refuerzos = []
+    for tid in ids_refuerzo:
+        turnos = []
+        for dia in dias:
+            a = cuadrante.obtener(tid, dia)
+            if a and a.es_trabajo:
+                e, s = _entrada_salida(a.turno, a.puesto)
+                turnos.append({"dia": dia, "entrada": e, "salida": s,
+                               "servicio": _servicio_de(a.turno, a.puesto,
+                                                        calendario.es_fin_de_semana(dia))})
+        if turnos:
+            refuerzos.append({"nombre": trabajadores[tid].nombre if tid in trabajadores else str(tid),
+                              "turnos": turnos})
+    return {"servicios": servicios, "total_general_dia": tg, "total_general": sum(tg),
+            "refuerzos": refuerzos}
 
 
 class ExportadorFacturacion:
@@ -407,6 +455,16 @@ class ExportadorFacturacion:
                          f"de {mes}, ambos inclusive.")
                 self._cel(hoja, fila, 1, texto, fuente=_F_NORM, borde=False, alin=_IZQ)
                 fila += 1
+        # Personal de refuerzo que vino a cubrir turnos sueltos: al pie, sin fila
+        # propia en las tablas de OT.
+        refuerzos = self.datos.get("refuerzos", [])
+        if refuerzos:
+            fila += 1
+            for ref in refuerzos:
+                hoja.merge_cells(start_row=fila, start_column=1, end_row=fila, end_column=16)
+                self._cel(hoja, fila, 1, _texto_refuerzo(ref, mes),
+                          fuente=_F_NORM, borde=False, alin=_IZQ)
+                fila += 1
 
     def _anchos(self, hoja) -> None:
         hoja.column_dimensions["A"].width = 28
@@ -562,13 +620,18 @@ class ExportadorFacturacionPDF:
                      Paragraph("DETALLE DE LOS SERVICIOS (OT)", p_tit)]
         for _p, codigo, nombre in _SERVICIOS:
             elementos.append(Paragraph(f"<b>{codigo}</b> — esta OT corresponde a {nombre}", p_txt))
+        mes_min = NOMBRES_MES[self.cuadrante.mes]
         vacs = rangos_vacaciones(self.cuadrante, self.trabajadores, cal)
         if vacs:
             elementos.append(Spacer(1, 3 * mm))
-            mes_min = NOMBRES_MES[self.cuadrante.mes]
             for nombre, ini, fin in vacs:
                 elementos.append(Paragraph(
                     f"La VS {nombre} disfruta de vacaciones del {ini} al {fin} "
                     f"de {mes_min}, ambos inclusive.", p_txt))
+        refuerzos = datos.get("refuerzos", [])
+        if refuerzos:
+            elementos.append(Spacer(1, 3 * mm))
+            for ref in refuerzos:
+                elementos.append(Paragraph(_texto_refuerzo(ref, mes_min), p_txt))
         doc.build(elementos)
         return ruta
