@@ -47,7 +47,15 @@ def _servicio_de(turno: Turno, puesto: Puesto, es_finde: bool) -> str:
     * MO               -> RECEPCIÓN (cubre el día laborable de Recepción).
     * F1 de noche      -> RECEPCIÓN.
     * F1 de mañana     -> MÓVIL/RESPONSABLE si es laborable (lo hacen Luis y
-                          Fernando); en fin de semana va a RECEPCIÓN.
+                          Fernando); en fin de semana O FESTIVO va a RECEPCIÓN,
+                          porque esos días el servicio se cubre como el fin de
+                          semana (cuatro puestos, sin Móvil ni Explanada).
+
+    :param es_finde: día cubierto como fin de semana, lo que incluye los
+        FESTIVOS. Pasar aquí solo el sábado y el domingo dejaba el F1 de mañana
+        de un festivo entre semana facturado a MÓVIL, una OT en la que solo
+        figuran los jefes: las horas de quien lo cubriera desaparecían del
+        desglose por OT (el total general sí las contaba, y no cuadraban).
     """
     if puesto is Puesto.EX:
         return "EXPLANADA"
@@ -169,7 +177,7 @@ def construir_datos_facturacion(cuadrante: Cuadrante, trabajadores: dict[int, Tr
         """Servicio de la asignación de un trabajador ese día, o None."""
         a = cuadrante.obtener(tid, dia)
         if a and a.es_trabajo:
-            return _servicio_de(a.turno, a.puesto, calendario.es_fin_de_semana(dia))
+            return _servicio_de(a.turno, a.puesto, calendario.es_festivo_o_finde(dia))
         return None
 
     servicios = []
@@ -204,9 +212,12 @@ def construir_datos_facturacion(cuadrante: Cuadrante, trabajadores: dict[int, Tr
         tot_dia = [sum(12 for e in empleados if serv_dia(e["id"], dia) == clave) for dia in dias]
         servicios.append({"codigo": codigo, "nombre": nombre, "clave": clave,
                           "empleados": empleados, "totales_dia": tot_dia, "total": sum(tot_dia)})
+    # El total general cuenta solo a quienes tienen fila en las OT. Los refuerzos
+    # van al pie, igual que en el cuadrante original del cliente, y no suman aquí:
+    # así el desglose por OT y el total general siempre coinciden.
     tg = []
     for dia in dias:
-        h = sum(12 for tid in todos if (a := cuadrante.obtener(tid, dia)) and a.es_trabajo)
+        h = sum(12 for tid in ids if (a := cuadrante.obtener(tid, dia)) and a.es_trabajo)
         tg.append(h)
     # Turnos de los refuerzos, agrupados por (servicio, turno) para el pie.
     refuerzos = []
@@ -218,7 +229,7 @@ def construir_datos_facturacion(cuadrante: Cuadrante, trabajadores: dict[int, Tr
                 e, s = _entrada_salida(a.turno, a.puesto)
                 turnos.append({"dia": dia, "entrada": e, "salida": s,
                                "servicio": _servicio_de(a.turno, a.puesto,
-                                                        calendario.es_fin_de_semana(dia))})
+                                                        calendario.es_festivo_o_finde(dia))})
         if turnos:
             refuerzos.append({"nombre": trabajadores[tid].nombre if tid in trabajadores else str(tid),
                               "turnos": turnos})
