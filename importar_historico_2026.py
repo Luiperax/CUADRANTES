@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Importa al historial los cuadrantes REALES de enero a septiembre de 2026.
+Importa al historial los cuadrantes REALES de enero a octubre de 2026.
 
 Ejecútelo UNA vez en el portátil, en la carpeta del programa:
 
@@ -140,12 +140,27 @@ MESES = json.loads(r"""{
 "LUIS PERALTA ROS": "MT/F1 MT/F1 MT/F1 MT/F1 MT/F1 MT/F1 MT/F1 MT/F1 MT/F1 MT/EX MT/EX . . MT/F1 MT/F1 MT/F1 MT/F1 MT/F1 . . . . . . . . . MT/F2 MT/MO MT/EX",
 "MOHAMED AMAR MOHAMED": "TN/F2 TN/F1 . TN/F2 TN/F1 TN/F1 TN/F1 . TN/F1 TN/F2 TN/F2 TN/F1 TN/F1 . . MT/MO MT/MO TN/F2 TN/F1 TN/F2 TN/F1 . . V V V V V V V",
 "IVAN DIAZ MOYA": "MT/MO MT/EX TN/F2 TN/F1 TN/F2 TN/F2 . MT/EX MT/F2 TN/F1 . . . MT/MO . . . . . . MT/EX MT/MO MT/F2 MT/EX MT/F2 MT/F1 MT/F2 . . ."
+},
+"10": {
+"FERNANDO CEMBRERO ANTOLÍN": "MT/EX MT/F1 . . MT/EX MT/F1 MT/EX . MT/F1 . . . . . MT/MO MT/F1 MT/F1 MT/F1 MT/F1 . MT/F1 MT/F1 MT/F1 . . MT/F1 MT/F1 MT/F1 . MT/F1 .",
+"SANTIAGO R. MANRIQUE GÓMEZ": ". MT/MO . . V V V V V V V V MT/MO MT/F2 MT/EX MT/F2 . . MT/F2 . MT/F2 MT/EX MT/F2 MT/F1 MT/F2 MT/F2 . MT/F2 MT/EX . .",
+"DANIEL LABERNIA GONZÁLEZ": ". . . . TN/F2 TN/F1 . MT/MO . . . . TN/F1 . . TN/F1 TN/F2 TN/F1 . . . TN/F2 TN/F1 TN/F2 TN/F1 TN/F1 TN/F2 TN/F1 TN/F2 . .",
+"JAVIER CALDERON FERNÁNDEZ": "MT/F2 MT/EX . . MT/F2 MT/EX . MT/F2 MT/EX MT/F2 MT/F1 MT/F2 MT/EX MT/MO . . . . . MT/F2 MT/EX MT/MO MT/EX MT/F2 MT/F1 . . . . . .",
+"Mª VICTORIA CANO MARTINEZ": "MT/MO TN/F2 TN/F1 . . . . . . . . . . TN/F1 TN/F2 TN/F2 TN/F1 . TN/F2 TN/F1 TN/F1 . . . TN/F2 TN/F2 TN/F1 . . TN/F1 TN/F2",
+"JAVIER PEREZ GALLARDO": "TN/F1 . MT/F2 MT/F1 MT/MO . MT/MO MT/EX MT/F2 TN/F2 . . MT/F2 MT/EX MT/F2 MT/EX . . . . . MT/F2 MT/MO . . . . TN/F2 TN/F1 TN/F2 TN/F1",
+"LUIS PERALTA ROS": "MT/F1 . . . MT/F1 MT/MO MT/F1 MT/F1 . . . . MT/F1 MT/F1 MT/F1 . . . . MT/F1 . . . . . . . . MT/F1 . .",
+"MOHAMED AMAR MOHAMED": ". . . TN/F2 TN/F1 TN/F2 TN/F1 . TN/F2 TN/F1 TN/F2 TN/F1 TN/F2 TN/F2 . . . TN/F2 TN/F1 TN/F2 TN/F2 TN/F1 . . . MT/MO MT/MO MT/MO . V V",
+"EUGENIA DEL PILAR VILEMA VILEMA": ". MT/F2 MT/F1 MT/F2 . MT/F2 MT/F2 TN/F1 TN/F1 . TN/F1 TN/F2 . . TN/F1 . MT/F2 MT/F2 MT/MO MT/EX . . . . . . MT/EX . MT/MO MT/F2 .",
+"IVAN DIAZ MOYA": "TN/F2 TN/F1 TN/F2 TN/F1 . . TN/F2 TN/F2 . MT/F1 MT/F2 MT/F1 . . . MT/MO . . . MT/MO MT/MO . TN/F2 TN/F1 . . . . . MT/MO MT/F2",
+"MAGALY ALEXANDRA SANTOS": ". . . . . . . . . . . . . . . . . . MT/EX . . . . . . MT/EX MT/F2 MT/EX MT/F2 MT/EX MT/F1",
+"MUSTAFA SEGURA SEYDULA": ". . . . . . . . MT/MO . . . . . . . . . . . . . . . . . . . . . ."
 }
 }""")
 
-DIAS_MES = {1: 31, 2: 28, 3: 31, 4: 30, 5: 31, 6: 30, 7: 31, 8: 31, 9: 30}
+DIAS_MES = {1: 31, 2: 28, 3: 31, 4: 30, 5: 31, 6: 30, 7: 31, 8: 31, 9: 30, 10: 31}
 NOMBRE_MES = {1: "enero", 2: "febrero", 3: "marzo", 4: "abril", 5: "mayo",
-              6: "junio", 7: "julio", 8: "agosto", 9: "septiembre"}
+              6: "junio", 7: "julio", 8: "agosto", 9: "septiembre",
+              10: "octubre"}
 
 
 def _norm(nombre: str) -> str:
@@ -229,7 +244,7 @@ def main() -> int:
               f"{tt:3d} turnos, {nn:3d} noches  [guardado]")
         total_ok += 1
 
-    print(f"\n\u2705 {total_ok} meses (enero-septiembre 2026) añadidos al historial.")
+    print(f"\n\u2705 {total_ok} meses (enero-octubre 2026) añadidos al historial.")
     print("   Ábralos en el programa para revisarlos. A partir de ahora el reparto")
     print("   tendrá en cuenta todo el año.")
     servicio.cerrar()
