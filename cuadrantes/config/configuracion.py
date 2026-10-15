@@ -112,7 +112,7 @@ class PesosObjetivos:
     # Penalización por cada día que un trabajador encadena por encima de su límite
     # personal («max_dias_seguidos_preferido»), que es más estricto que el máximo
     # general del convenio. Objetivo blando: cede ante la cobertura del servicio.
-    limite_dias_seguidos_individual: int = 700
+    limite_dias_seguidos_individual: int = 3000
     # Reparto de fines de semana, equilibrado a lo largo del AÑO (histórico +
     # mes en curso), no mes a mes. Con 80 no llegaba a competir con el resto de
     # objetivos y el desequilibrio anual no se corregía nunca.
@@ -197,7 +197,7 @@ class PesosObjetivos:
 # Súbela cada vez que cambies un valor por defecto de esas secciones: al detectar una
 # versión anterior en la base de datos, se recargan desde el código (una sola vez) y
 # se vuelven a guardar, y desde entonces se respetan las ediciones del usuario.
-VERSION_CALIBRACION = 3
+VERSION_CALIBRACION = 4
 
 
 @dataclass
