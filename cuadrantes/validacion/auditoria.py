@@ -81,6 +81,18 @@ class Auditor:
         self.calendario = CalendarioMes(cuadrante.anio, cuadrante.mes, festivos or set())
         self.resumenes = calcular_resumenes(cuadrante, trabajadores, self.calendario)
 
+    def _jefes(self) -> list[Trabajador]:
+        """Jefes de equipo que PARTICIPAN en este cuadrante.
+
+        Se mira quién tiene asignaciones, no quién figura como jefe en la base de
+        datos: un jefe dado de baja (p. ej. Luis desde noviembre) sigue guardado
+        para conservar su historial, pero no cuenta para las reglas de reparto.
+        """
+        presentes = {tid for (tid, _dia) in self.cuadrante.asignaciones}
+        presentes |= set(self.cuadrante.trabajadores_ids or [])
+        return [t for tid, t in self.trabajadores.items()
+                if t.es_jefe_equipo and tid in presentes]
+
     def _nombre(self, trabajador_id: int) -> str:
         t = self.trabajadores.get(trabajador_id)
         return t.nombre if t else f"Trabajador {trabajador_id}"
@@ -117,7 +129,10 @@ class Auditor:
 
         infracciones: list[str] = []
         afectados: set[str] = set()
-        hay_jefes = any(t.es_jefe_equipo for t in self.trabajadores.values())
+        # La reserva del F1 de mañana a los jefes solo es una obligación cuando hay
+        # dos o más: con un único jefe no puede cubrir todos los laborables del mes
+        # (descansa, tiene vacaciones), y el resto del equipo cubre los demás.
+        hay_jefes = len(self._jefes()) >= 2
         for (trabajador_id, dia), asignacion in self.cuadrante.asignaciones.items():
             if not asignacion.es_trabajo:
                 continue
@@ -333,10 +348,7 @@ class Auditor:
         mayor prioridad)."""
         from ..config.constantes import Puesto, Turno
 
-        jefes = sorted(
-            [t for t in self.trabajadores.values() if t.es_jefe_equipo],
-            key=lambda t: (-t.prioridad_jefe, t.id),
-        )
+        jefes = sorted(self._jefes(), key=lambda t: (-t.prioridad_jefe, t.id))
         if len(jefes) < 2:
             return ResultadoRegla("Reparto F1 de mañana (jefes)", EstadoRegla.CUMPLE,
                                   motivo="No procede (menos de dos jefes de equipo).")
