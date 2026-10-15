@@ -167,8 +167,16 @@ class ServicioCuadrantes:
         config = self.configuracion()
         trabajadores = self.mapa_trabajadores()
         ausencias = self.ausencias.listar_por_mes(cuadrante.anio, cuadrante.mes)
+        # También las del mes siguiente: unas vacaciones que empiezan los primeros
+        # días exigen dejar libre el final de este mes, y eso hay que comprobarlo.
+        siguiente = (cuadrante.anio + 1, 1) if cuadrante.mes == 12 else (cuadrante.anio, cuadrante.mes + 1)
+        vistas = {a.id for a in ausencias}
+        ausencias = ausencias + [a for a in self.ausencias.listar_por_mes(*siguiente)
+                                 if a.id not in vistas]
         festivos = self.festivos_del_mes(cuadrante.anio, cuadrante.mes)
-        return Auditor(cuadrante, trabajadores, config, ausencias, festivos=festivos).auditar()
+        anterior = (cuadrante.anio - 1, 12) if cuadrante.mes == 1 else (cuadrante.anio, cuadrante.mes - 1)
+        return Auditor(cuadrante, trabajadores, config, ausencias, festivos=festivos,
+                       cuadrante_previo=self.cuadrantes.ultima_version(*anterior)).auditar()
 
     # ------------------------------------------------------------------
     def exportar_excel(self, cuadrante: Cuadrante, ruta: str | Path) -> Path:

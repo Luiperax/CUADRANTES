@@ -14,6 +14,8 @@ Cuando alguna regla no puede cumplirse, la auditoría:
 
 from __future__ import annotations
 
+import calendar
+
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -71,8 +73,12 @@ class Auditor:
         configuracion: Configuracion,
         ausencias: list[Ausencia] | None = None,
         festivos: set | None = None,
+        cuadrante_previo: Cuadrante | None = None,
     ):
         self.cuadrante = cuadrante
+        # Cuadrante del mes anterior, para juzgar reglas que cruzan la frontera
+        # (los días libres antes de unas vacaciones que empiezan el día 2, p. ej.).
+        self.cuadrante_previo = cuadrante_previo
         self.trabajadores = trabajadores
         self.config = configuracion
         self.ausencias = ausencias or []
@@ -333,11 +339,65 @@ class Auditor:
                 if asig and asig.es_noche:
                     infracciones.append(f"{nombre} se reincorpora directamente a noche (día {dia_despues})")
                     afectados.add(nombre)
+        # Días libres alrededor de las vacaciones: basta con que uno de los dos
+        # lados (los días mínimos justo antes o justo después) quede libre. Solo se
+        # juzga un lado si cae ENTERO dentro de este mes; si el otro se sale al mes
+        # contiguo, queda como único exigible.
+        v_antes = max(1, self.config.vacaciones.dias_libres_antes_min)
+        v_despues = max(1, self.config.vacaciones.dias_libres_despues_min)
+        n_mes = self.calendario.numero_dias
+        anio, mes = self.cuadrante.anio, self.cuadrante.mes
+
+        def dia_rel(fecha):
+            if (fecha.year, fecha.month) == (anio, mes):
+                return fecha.day
+            sig = (anio + 1, 1) if mes == 12 else (anio, mes + 1)
+            if (fecha.year, fecha.month) == sig:
+                return n_mes + fecha.day
+            return None
+
+        previo = self.cuadrante_previo
+        n_previo = (calendar.monthrange(previo.anio, previo.mes)[1] if previo else 0)
+
+        def evaluable(d):
+            """El día está en este mes o en el anterior (si se aportó)."""
+            return 1 <= d <= n_mes or (previo is not None and 1 <= n_previo + d <= n_previo and d < 1)
+
+        def trabajado(tid, d):
+            if d < 1:
+                a = previo.obtener(tid, n_previo + d)
+            else:
+                a = self.cuadrante.obtener(tid, d)
+            return bool(a and a.es_trabajo)
+
+        for ausencia in self.ausencias:
+            if ausencia.tipo is not TipoAusencia.VACACIONES:
+                continue
+            ini, fin = dia_rel(ausencia.fecha_inicio), dia_rel(ausencia.fecha_fin)
+            if ini is None or fin is None:
+                continue
+            tid = ausencia.trabajador_id
+            lados = []
+            ventana_antes = [ini - k for k in range(1, v_antes + 1)]
+            ventana_despues = [fin + k for k in range(1, v_despues + 1)]
+            for nombre_lado, ventana in (("antes", ventana_antes), ("después", ventana_despues)):
+                if all(evaluable(d) for d in ventana):
+                    lados.append((nombre_lado, [d for d in ventana if trabajado(tid, d)]))
+            if lados and not any(not trabajados for _, trabajados in lados):
+                nombre = self._nombre(tid)
+                detalle = "; ".join(
+                    f"{lado}: trabaja el día {', '.join(str(d) for d in tr)}" for lado, tr in lados)
+                infracciones.append(
+                    f"{nombre} no tiene {v_antes} días libres antes ni {v_despues} después de sus "
+                    f"vacaciones del {ausencia.fecha_inicio.day} al {ausencia.fecha_fin.day} "
+                    f"({detalle})")
+                afectados.add(nombre)
+
         if infracciones:
             return ResultadoRegla(
                 "Vacaciones y adaptación", EstadoRegla.ADVERTENCIA,
                 motivo="; ".join(infracciones[:6]),
-                solucion_propuesta="Sustituir esas noches por jornadas diurnas o días de descanso.",
+                solucion_propuesta="Dejar libres los días justo antes o justo después de las vacaciones, y sin noche pegada a ellas.",
                 trabajadores_afectados=sorted(afectados),
             )
         return ResultadoRegla("Vacaciones y adaptación", EstadoRegla.CUMPLE,

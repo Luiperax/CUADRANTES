@@ -94,6 +94,13 @@ PENALIZACION_FINDE_PARTIDO = 12_000
 # pagaba sin pestañear y hasta cinco personas cambiaban justo al empalmar los meses.
 # Se pone por encima del reparto de noches (2.500) y de la adaptación a vacaciones.
 PENALIZACION_CAMBIO_ENLACE = 6_000
+# Penalización por unas vacaciones que no tienen libre NINGUNO de sus dos lados (los
+# días mínimos antes ni los días mínimos después). Antes era una preferencia suave
+# de 2.500 por día y perdía frente a casi cualquier otro objetivo: bastaba una
+# jornada de más para repartir horas y alguien trabajaba el día antes de irse. Es una
+# regla del centro, así que pesa más que partir un fin de semana o cambiar de horario;
+# solo cede ante dejar un puesto sin cubrir.
+PENALIZACION_VACACIONES_SIN_DESCANSO = 40_000
 
 
 class OptimizadorCuadrante:
@@ -608,6 +615,28 @@ class OptimizadorCuadrante:
                     )
                 if variables:
                     self.modelo.Add(sum(variables) <= max_noches)
+
+    def _estado_mes_previo(self, trabajador_id: int, dia_relativo: int) -> str | None:
+        """Qué hacía el trabajador un día del mes anterior (``dia_relativo`` <= 0).
+
+        ``"T"`` trabajó, ``"V"`` estaba de vacaciones, ``"L"`` libre u otra ausencia,
+        ``None`` si no hay cuadrante previo del que leerlo.
+        """
+        previo = self.cuadrante_previo
+        if previo is None:
+            return None
+        import calendar as _calendario
+        dia = _calendario.monthrange(previo.anio, previo.mes)[1] + dia_relativo
+        if dia < 1:
+            return None
+        asignacion = previo.obtener(trabajador_id, dia)
+        if asignacion is None:
+            return "L"
+        if asignacion.es_trabajo:
+            return "T"
+        if asignacion.ausencia is not None and asignacion.ausencia.name == "VACACIONES":
+            return "V"
+        return "L"
 
     def _dia_relativo(self, fecha) -> int | None:
         """Día del mes que se está planificando equivalente a ``fecha``.
@@ -1145,48 +1174,70 @@ class OptimizadorCuadrante:
         if self.config.vacaciones.procurar_descanso_alrededor and pesos.adaptacion_vacaciones > 0:
             v_antes = max(1, self.config.vacaciones.dias_libres_antes_min)
             v_despues = max(1, self.config.vacaciones.dias_libres_despues_min)
+            n_mes = self.calendario.numero_dias
             for idx, ausencia in enumerate(self.ausencias):
                 if ausencia.tipo is not TipoAusencia.VACACIONES:
                     continue
                 if ausencia.trabajador_id not in self._mapa_trabajadores:
                     continue
                 tid = ausencia.trabajador_id
-                # Los días previos se cuentan hacia atrás desde el inicio de las
-                # vacaciones AUNQUE ese inicio caiga en el mes siguiente: unas
-                # vacaciones que arrancan el día 2 exigen dejar libre el final de
-                # este mes. Se traduce la fecha a un número de día relativo a este
-                # mes (0 o negativo si cae ya en el siguiente).
+                # Las fechas se traducen a un día relativo a este mes (por encima del
+                # último día si caen ya en el siguiente).
                 inicio_rel = self._dia_relativo(ausencia.fecha_inicio)
                 fin_rel = self._dia_relativo(ausencia.fecha_fin)
-                antes_vars: list = []
-                if inicio_rel is not None:
-                    for k in range(1, v_antes + 1):
-                        d = inicio_rel - k
-                        if 1 <= d <= self.calendario.numero_dias:
-                            antes_vars += self._variable_trabaja(tid, d)
-                despues_vars: list = []
-                if fin_rel is not None:
-                    for k in range(1, v_despues + 1):
-                        d = fin_rel + k
-                        if 1 <= d <= self.calendario.numero_dias:
-                            despues_vars += self._variable_trabaja(tid, d)
-                # Si un lado cae entero fuera del mes, el otro deja de ser opcional:
-                # se exige ese, en vez de darlo por bueno como antes.
-                if not antes_vars and not despues_vars:
+                if inicio_rel is None or fin_rel is None:
                     continue
-                if not antes_vars or not despues_vars:
-                    unico = antes_vars or despues_vars
-                    n = self.modelo.NewIntVar(0, len(unico), f"vac_unico_{tid}_{idx}")
-                    self.modelo.Add(n == sum(unico))
-                    terminos.append(pesos.adaptacion_vacaciones * n)
+                # Unas vacaciones que ya venían del mes anterior (el registro de este
+                # mes empieza el día 1 y los últimos días del anterior ya eran de
+                # vacaciones) empiezan en realidad antes: el descanso «de antes» se
+                # cuenta desde allí, no desde el día 1.
+                while inicio_rel - 1 < 1 and self._estado_mes_previo(tid, inicio_rel - 1) == "V":
+                    inicio_rel -= 1
+
+                def ventana(dias):
+                    """(variables en este mes, ya trabajado fuera, completa)."""
+                    variables: list = []
+                    roto = False
+                    completa = True
+                    for d in dias:
+                        if 1 <= d <= n_mes:
+                            variables += self._variable_trabaja(tid, d)
+                        elif d < 1:
+                            estado = self._estado_mes_previo(tid, d)
+                            if estado is None:
+                                completa = False
+                            elif estado == "T":
+                                roto = True
+                        else:
+                            completa = False      # cae en el mes siguiente: no se ve
+                    return variables, roto, completa
+
+                antes = ventana([inicio_rel - k for k in range(1, v_antes + 1)])
+                despues = ventana([fin_rel + k for k in range(1, v_despues + 1)])
+                lados = [lado for lado in (antes, despues) if lado[2] and not lado[1]]
+
+                if not lados:
+                    # Ningún lado puede juzgarse entero (o los dos ya están rotos por
+                    # el mes anterior): se conserva la preferencia suave sobre lo que
+                    # sí se ve, para no abandonar el descanso del todo.
+                    vistos = [v for lado in (antes, despues) for v in lado[0]]
+                    if vistos:
+                        n = self.modelo.NewIntVar(0, len(vistos), f"vac_parcial_{tid}_{idx}")
+                        self.modelo.Add(n == sum(vistos))
+                        terminos.append(pesos.adaptacion_vacaciones * n)
                     continue
-                na = self.modelo.NewIntVar(0, v_antes, f"vac_antes_{tid}_{idx}")
-                self.modelo.Add(na == sum(antes_vars))
-                nd = self.modelo.NewIntVar(0, v_despues, f"vac_despues_{tid}_{idx}")
-                self.modelo.Add(nd == sum(despues_vars))
-                lado_peor = self.modelo.NewIntVar(0, max(v_antes, v_despues), f"vac_peor_{tid}_{idx}")
-                self.modelo.AddMinEquality(lado_peor, [na, nd])
-                terminos.append(pesos.adaptacion_vacaciones * lado_peor)
+                if any(not lado[0] for lado in lados):
+                    continue          # un lado no tiene a nadie que pueda trabajar: ya libre
+
+                libres = []
+                for k, (variables, _, _) in enumerate(lados):
+                    libre = self.modelo.NewBoolVar(f"vac_libre_{tid}_{idx}_{k}")
+                    # libre = 1  ->  ningún turno en esa ventana.
+                    self.modelo.Add(sum(variables) == 0).OnlyEnforceIf(libre)
+                    libres.append(libre)
+                sin_descanso = self.modelo.NewBoolVar(f"vac_sin_descanso_{tid}_{idx}")
+                self.modelo.Add(sum(libres) + sin_descanso >= 1)
+                terminos.append(PENALIZACION_VACACIONES_SIN_DESCANSO * sin_descanso)
 
         # (9) Maximizar los días trabajados de quien tenga «maximizar_dias»: se
         # recompensa cada turno suyo para que llene sus días disponibles, aunque
