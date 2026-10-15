@@ -71,6 +71,14 @@ PENALIZACION_SIN_CUBRIR = 1_000_000
 PENALIZACION_DESCANSO_AISLADO = 8_000
 # Penalización por desviación en el reparto de F1 de mañana laborable entre jefes.
 PENALIZACION_REPARTO_F1 = 10_000
+# Penalización por cada MT-F1 de día laborable que hace alguien que no es jefe de
+# equipo, cuando solo hay UN jefe en plantilla. Con dos o más la reserva sigue siendo
+# dura (la variable ni se crea); con uno solo no puede serlo, porque una persona no
+# cubre los veinte laborables del mes (240 h). El peso deja al jefe el puesto siempre
+# que trabaje esa mañana, pero cede cuando mantenerlo le dispararía las horas por
+# encima del resto del equipo: repartir una jornada de 12 h ahorra unos 3.300 puntos
+# de equilibrio, así que por debajo de esa cifra el reparto manda.
+PENALIZACION_F1_NO_JEFE = 2_500
 # Recompensa por cada día trabajado de quien tiene «maximizar_dias» (trabaja el
 # máximo de días disponibles). Alta para que llene sus días, pero por debajo del
 # objetivo individual de fines de semana (20_000), de modo que NO le haga hacer
@@ -121,6 +129,12 @@ class OptimizadorCuadrante:
         # La reserva de MT-F1 a jefes solo tiene sentido si existe al menos un jefe;
         # de lo contrario el puesto quedaría sin poder cubrirse.
         self._hay_jefes = any(t.es_jefe_equipo for t in trabajadores)
+        # Con dos o más jefes la reserva es DURA (se prohíbe al resto). Con uno solo
+        # pasa a ser una preferencia fuerte, porque un único jefe no da para todos
+        # los laborables del mes y el mes se quedaría sin solución.
+        self._reserva_f1_dura = sum(1 for t in trabajadores if t.es_jefe_equipo) >= 2
+        # MT-F1 de día laborable asignados a quien no es jefe de equipo.
+        self._f1_de_no_jefe: list[cp_model.IntVar] = []
         # Holguras de la regla de descansos agrupados (se penalizan en el objetivo).
         self._slacks_descanso: list[cp_model.IntVar] = []
         # Holguras de la continuidad del fin de semana partido entre meses.
@@ -219,14 +233,17 @@ class OptimizadorCuadrante:
                         continue
                     if not self._disponibilidad[(trabajador.id, dia)]:
                         continue
-                    # Reserva de F1 de mañana a los jefes de equipo en día laborable:
-                    # no se crea la variable para el resto de trabajadores, con lo que
-                    # queda prohibido que lo realicen.
-                    if self._reservado_a_jefes(turno, puesto, festivo_finde) and not trabajador.es_jefe_equipo:
+                    # Reserva de F1 de mañana a los jefes de equipo en día laborable.
+                    reservado = (self._reservado_a_jefes(turno, puesto, festivo_finde)
+                                 and not trabajador.es_jefe_equipo)
+                    if reservado and self._reserva_f1_dura:
+                        # Con dos o más jefes queda prohibido: no se crea la variable.
                         continue
                     self.x[(trabajador.id, dia, turno, puesto)] = self.modelo.NewBoolVar(
                         f"x_{trabajador.id}_{dia}_{turno.value}_{puesto.value}"
                     )
+                    if reservado:
+                        self._f1_de_no_jefe.append(self.x[(trabajador.id, dia, turno, puesto)])
 
     def _preparar_mes_previo(self) -> None:
         """Lee los últimos días del mes anterior para enlazar los dos meses.
@@ -1089,6 +1106,13 @@ class OptimizadorCuadrante:
                 self.modelo.Add(
                     desbalance >= conteo[superior.id] - conteo[inferior.id] - minimo - 1)
                 terminos.append(PENALIZACION_REPARTO_F1 * (falta + desbalance))
+
+        # (7 bis) MT-F1 de laborable que no hace un jefe de equipo. Solo llega aquí
+        # cuando hay un único jefe: entonces la reserva es una preferencia fuerte y no
+        # una prohibición, para que el resto cubra los días que el jefe no puede hacer
+        # en vez de dejar el mes sin solución o cargarle de horas.
+        if self._f1_de_no_jefe:
+            terminos.append(PENALIZACION_F1_NO_JEFE * sum(self._f1_de_no_jefe))
 
         # (8) Procurar días libres agrupados con las vacaciones: para cada periodo
         # de vacaciones se intenta dejar libres los días inmediatamente anteriores
