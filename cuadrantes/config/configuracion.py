@@ -44,6 +44,12 @@ class ParametrosDescanso:
     # cuenta el enlace con el mes anterior, para no obligar a pasar el mes entero
     # en un único horario.
     max_cambios_dia_noche: int = 1
+    # Si es True, el máximo de cambios es una REGLA (el motor no puede superarlo) y no
+    # una penalización. Con peso, el solver, que no llega a demostrar nada en el
+    # tiempo disponible, acababa pagándolo: un vigilante encadenaba mañana, noche,
+    # mañana, noche y mañana en un mismo mes. Si la cobertura no cuadra con la regla
+    # el puesto queda sin cubrir y se avisa, igual que con cualquier otra regla dura.
+    cambios_fase_duros: bool = False
 
 
 @dataclass

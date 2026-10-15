@@ -1078,6 +1078,8 @@ class OptimizadorCuadrante:
                 # anterior): si contara, a quien llega cambiado del mes previo le
                 # tocaría pasar el mes entero en un solo horario.
                 internos = cambios[1:] if fase_previa is not None and dias_fase else cambios
+                if max_cambios and self.config.descanso.cambios_fase_duros and internos:
+                    self.modelo.Add(sum(internos) <= max_cambios)
                 if max_cambios and pesos.limite_cambios_fase and internos:
                     exceso = self.modelo.NewIntVar(
                         0, len(internos), f"excesocambios_{trabajador.id}")
