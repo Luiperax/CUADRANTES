@@ -370,6 +370,7 @@ class Auditor:
                 a = self.cuadrante.obtener(tid, d)
             return bool(a and a.es_trabajo)
 
+        aplazadas: list[str] = []
         for ausencia in self.ausencias:
             if ausencia.tipo is not TipoAusencia.VACACIONES:
                 continue
@@ -385,6 +386,15 @@ class Auditor:
                     lados.append((nombre_lado, [d for d in ventana if trabajado(tid, d)]))
             if lados and not any(not trabajados for _, trabajados in lados):
                 nombre = self._nombre(tid)
+                # El lado que falta cae en el mes siguiente: la obligación se traslada
+                # al cuadrante de ese mes (su motor lee estas vacaciones y deja libres
+                # los primeros días). No es un incumplimiento, pero se deja a la vista.
+                if any(d > n_mes for d in ventana_despues) and len(lados) == 1:
+                    aplazadas.append(
+                        f"{nombre}: sus vacaciones acaban el día {ausencia.fecha_fin.day} y no tiene "
+                        f"{v_antes} días libres antes; el descanso queda para el mes siguiente "
+                        f"(los primeros {v_despues} días libres)")
+                    continue
                 detalle = "; ".join(
                     f"{lado}: trabaja el día {', '.join(str(d) for d in tr)}" for lado, tr in lados)
                 infracciones.append(
@@ -400,8 +410,10 @@ class Auditor:
                 solucion_propuesta="Dejar libres los días justo antes o justo después de las vacaciones, y sin noche pegada a ellas.",
                 trabajadores_afectados=sorted(afectados),
             )
-        return ResultadoRegla("Vacaciones y adaptación", EstadoRegla.CUMPLE,
-                              motivo="Se respetan los periodos de adaptación de las vacaciones.")
+        motivo = "Se respetan los periodos de adaptación de las vacaciones."
+        if aplazadas:
+            motivo += " Pendiente para el mes siguiente: " + "; ".join(aplazadas) + "."
+        return ResultadoRegla("Vacaciones y adaptación", EstadoRegla.CUMPLE, motivo=motivo)
 
     def _regla_reparto_f1_jefes(self) -> ResultadoRegla:
         """El F1 de mañana laborable se reparte por igual entre jefes (extra al de

@@ -101,6 +101,12 @@ PENALIZACION_CAMBIO_ENLACE = 6_000
 # regla del centro, así que pesa más que partir un fin de semana o cambiar de horario;
 # solo cede ante dejar un puesto sin cubrir.
 PENALIZACION_VACACIONES_SIN_DESCANSO = 40_000
+# Cuando el descanso que falta es el «de después» y ese lado cae en el mes SIGUIENTE
+# (unas vacaciones que acaban el día 30), la obligación se traslada a ese mes: el
+# motor del mes siguiente leerá las vacaciones y dejará libres los primeros días. Aquí
+# el descanso «de antes» pasa a ser una preferencia fuerte, no una obligación, para no
+# forzar un mes entero por algo que el siguiente puede dar igual.
+PENALIZACION_VACACIONES_APLAZADA = 10_000
 
 
 class OptimizadorCuadrante:
@@ -652,6 +658,11 @@ class OptimizadorCuadrante:
         siguiente = (self.anio + 1, 1) if self.mes == 12 else (self.anio, self.mes + 1)
         if (fecha.year, fecha.month) == siguiente:
             return self.calendario.numero_dias + fecha.day
+        anterior = (self.anio - 1, 12) if self.mes == 1 else (self.anio, self.mes - 1)
+        if (fecha.year, fecha.month) == anterior:
+            import calendar as _cal
+            # Cero o negativo: el último día del mes anterior es el día 0.
+            return fecha.day - _cal.monthrange(*anterior)[1]
         return None
 
     def _restriccion_vacaciones(self) -> None:
@@ -668,8 +679,9 @@ class OptimizadorCuadrante:
                         self.modelo.Add(var == 0)
             # Día de reincorporación (día siguiente al fin de vacaciones).
             if params.evitar_noche_al_reincorporarse:
-                dia_despues = ausencia.fecha_fin.day + 1
-                if ausencia.fecha_fin.month == self.mes and 1 <= dia_despues <= self.calendario.numero_dias:
+                fin_rel = self._dia_relativo(ausencia.fecha_fin)
+                dia_despues = None if fin_rel is None else fin_rel + 1
+                if dia_despues is not None and 1 <= dia_despues <= self.calendario.numero_dias:
                     for var in self._variable_trabaja(ausencia.trabajador_id, dia_despues, solo_noche=True):
                         self.modelo.Add(var == 0)
 
@@ -1194,7 +1206,9 @@ class OptimizadorCuadrante:
                 while inicio_rel - 1 < 1 and self._estado_mes_previo(tid, inicio_rel - 1) == "V":
                     inicio_rel -= 1
 
-                def ventana(dias):
+                aplazado = {"antes": False, "despues": False}
+
+                def ventana(dias, nombre):
                     """(variables en este mes, ya trabajado fuera, completa)."""
                     variables: list = []
                     roto = False
@@ -1210,10 +1224,11 @@ class OptimizadorCuadrante:
                                 roto = True
                         else:
                             completa = False      # cae en el mes siguiente: no se ve
+                            aplazado[nombre] = True
                     return variables, roto, completa
 
-                antes = ventana([inicio_rel - k for k in range(1, v_antes + 1)])
-                despues = ventana([fin_rel + k for k in range(1, v_despues + 1)])
+                antes = ventana([inicio_rel - k for k in range(1, v_antes + 1)], "antes")
+                despues = ventana([fin_rel + k for k in range(1, v_despues + 1)], "despues")
                 lados = [lado for lado in (antes, despues) if lado[2] and not lado[1]]
 
                 if not lados:
@@ -1228,6 +1243,27 @@ class OptimizadorCuadrante:
                     continue
                 if any(not lado[0] for lado in lados):
                     continue          # un lado no tiene a nadie que pueda trabajar: ya libre
+
+                if len(lados) == 1:
+                    # Un único lado se puede juzgar este mes.
+                    otro = "despues" if lados[0] is antes else "antes"
+                    if aplazado[otro]:
+                        # El otro lado cae en el mes siguiente: la obligación se
+                        # traslada allí (su motor leerá estas vacaciones), así que
+                        # este lado es solo una preferencia fuerte.
+                        n = self.modelo.NewBoolVar(f"vac_aplazada_{tid}_{idx}")
+                        for var in lados[0][0]:
+                            self.modelo.Add(var == 0).OnlyEnforceIf(n.Not())
+                        terminos.append(PENALIZACION_VACACIONES_APLAZADA * n)
+                    else:
+                        # El otro lado ya está roto por el mes anterior (cerrado) o no
+                        # se puede ver: este descanso es OBLIGATORIO, no una
+                        # preferencia que se pueda pagar. Si no, el solver, que no
+                        # llega a demostrar nada en el tiempo disponible, optaba por
+                        # no darlo.
+                        for var in lados[0][0]:
+                            self.modelo.Add(var == 0)
+                    continue
 
                 libres = []
                 for k, (variables, _, _) in enumerate(lados):

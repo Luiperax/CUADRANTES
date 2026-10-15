@@ -122,6 +122,13 @@ class ServicioCuadrantes:
         vistas = {a.id for a in ausencias}
         ausencias = ausencias + [a for a in self.ausencias.listar_por_mes(*siguiente)
                                  if a.id not in vistas]
+        # Y las del mes ANTERIOR: unas vacaciones que acaban los últimos días de aquel
+        # mes exigen dejar libres los primeros de este (el descanso «de después» que
+        # el mes anterior no pudo dar), y el motor tiene que verlas para cumplirlo.
+        anterior = (anio - 1, 12) if mes == 1 else (anio, mes - 1)
+        vistas = {a.id for a in ausencias}
+        ausencias = ausencias + [a for a in self.ausencias.listar_por_mes(*anterior)
+                                 if a.id not in vistas]
         restricciones = self.restricciones.listar_por_mes(anio, mes)
         festivos = {f.fecha for f in self.festivos.listar_por_mes(anio, mes)}
         # Festivos del mes SIGUIENTE: si uno cae en los primeros días, su puente
