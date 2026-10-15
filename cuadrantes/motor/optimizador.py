@@ -1215,6 +1215,7 @@ class OptimizadorCuadrante:
                     variables: list = []
                     roto = False
                     completa = True
+                    fuera: list = []
                     for d in dias:
                         if 1 <= d <= n_mes:
                             variables += self._variable_trabaja(tid, d)
@@ -1225,8 +1226,14 @@ class OptimizadorCuadrante:
                             elif estado == "T":
                                 roto = True
                         else:
-                            completa = False      # cae en el mes siguiente: no se ve
+                            fuera.append(d)        # cae en el mes siguiente: no se ve
                             aplazado[nombre] = True
+                    # Si una parte de la ventana cae en ESTE mes, esa parte sí hay que
+                    # dejarla libre (el mes siguiente solo puede dar el resto si esta
+                    # parte no se ha trabajado). Solo si cae ENTERA fuera no se puede
+                    # juzgar y la obligación se traslada.
+                    if fuera and not variables:
+                        completa = False
                     return variables, roto, completa
 
                 antes = ventana([inicio_rel - k for k in range(1, v_antes + 1)], "antes")

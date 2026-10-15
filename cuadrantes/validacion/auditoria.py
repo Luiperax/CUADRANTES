@@ -363,6 +363,15 @@ class Auditor:
             """El día está en este mes o en el anterior (si se aportó)."""
             return 1 <= d <= n_mes or (previo is not None and 1 <= n_previo + d <= n_previo and d < 1)
 
+        def juzgable(ventana):
+            """Se puede juzgar si no sale por abajo (mes anterior sin leer) y al menos
+            una parte cae dentro de este mes; la que cae en el mes siguiente queda para
+            ese mes. Devuelve los días de la ventana que sí se ven."""
+            if any(d < 1 and not evaluable(d) for d in ventana):
+                return None
+            vistos = [d for d in ventana if evaluable(d)]
+            return vistos or None
+
         def trabajado(tid, d):
             if d < 1:
                 a = previo.obtener(tid, n_previo + d)
@@ -382,14 +391,15 @@ class Auditor:
             ventana_antes = [ini - k for k in range(1, v_antes + 1)]
             ventana_despues = [fin + k for k in range(1, v_despues + 1)]
             for nombre_lado, ventana in (("antes", ventana_antes), ("después", ventana_despues)):
-                if all(evaluable(d) for d in ventana):
-                    lados.append((nombre_lado, [d for d in ventana if trabajado(tid, d)]))
+                vistos = juzgable(ventana)
+                if vistos:
+                    lados.append((nombre_lado, [d for d in vistos if trabajado(tid, d)]))
             if lados and not any(not trabajados for _, trabajados in lados):
                 nombre = self._nombre(tid)
                 # El lado que falta cae en el mes siguiente: la obligación se traslada
                 # al cuadrante de ese mes (su motor lee estas vacaciones y deja libres
                 # los primeros días). No es un incumplimiento, pero se deja a la vista.
-                if any(d > n_mes for d in ventana_despues) and len(lados) == 1:
+                if all(d > n_mes for d in ventana_despues) and len(lados) == 1:
                     aplazadas.append(
                         f"{nombre}: sus vacaciones acaban el día {ausencia.fecha_fin.day} y no tiene "
                         f"{v_antes} días libres antes; el descanso queda para el mes siguiente "
