@@ -87,7 +87,13 @@ RECOMPENSA_MAXIMIZAR_DIAS = 3_000
 # Penalización por partir un fin de semana a caballo entre dos meses (el sábado en
 # un mes y el domingo en el siguiente los hace gente distinta). Alta, pero BLANDA:
 # cede ante el límite de días consecutivos, que protege el descanso.
-PENALIZACION_FINDE_PARTIDO = 6_000
+PENALIZACION_FINDE_PARTIDO = 12_000
+# Penalización por empezar el mes en el horario contrario al que se acabó el anterior
+# (de mañana a noche o al revés). Es el mismo vaivén de sueño que se evita dentro del
+# mes, y aquí pesaba solo 800 como un cambio cualquiera: con ese precio el motor lo
+# pagaba sin pestañear y hasta cinco personas cambiaban justo al empalmar los meses.
+# Se pone por encima del reparto de noches (2.500) y de la adaptación a vacaciones.
+PENALIZACION_CAMBIO_ENLACE = 6_000
 
 
 class OptimizadorCuadrante:
@@ -311,6 +317,13 @@ class OptimizadorCuadrante:
                 for var in self._variable_trabaja(tid, dia_uno, solo_noche=False):
                     self.modelo.Add(var == 0)
 
+            # Mañana el último día del mes anterior -> ninguna noche el día 1: pasar
+            # de entrar a las 7 a entrar a las 19 al día siguiente es el cambio de
+            # sueño más brusco que hay.
+            if self._prev_turno.get((tid, 1)) is False:
+                for var in self._variable_trabaja(tid, dia_uno, solo_noche=True):
+                    self.modelo.Add(var == 0)
+
             # Días consecutivos arrastrados del mes anterior.
             seguidos = self._prev_dias_seguidos.get(tid, 0)
             if seguidos and not trabajador.maximizar_dias:
@@ -357,6 +370,13 @@ class OptimizadorCuadrante:
                 if vars_domingo and not bloqueado_por_descanso:
                     trabajo_el_sabado = (tid, 1) in self._prev_turno
                     objetivo = 1 if trabajo_el_sabado else 0
+                    # Quien tiene un número EXACTO de fines de semana (los jefes) no
+                    # puede además colarse en la mitad de otro: entrar el domingo sin
+                    # haber hecho el sábado le deja con un fin de semana de más.
+                    if (not objetivo and trabajador.fines_semana_exactos is not None):
+                        for var in vars_domingo:
+                            self.modelo.Add(var == 0)
+                        continue
                     desvio = self.modelo.NewIntVar(0, 1, f"findepartido_{tid}")
                     if objetivo:
                         # No trabajar el domingo tras haber hecho el sábado: penaliza.
@@ -1007,6 +1027,9 @@ class OptimizadorCuadrante:
                 if pesos.agrupar_dia_noche:
                     for cambio in cambios:
                         terminos.append(pesos.agrupar_dia_noche * cambio)
+                # El cambio con el mes anterior pesa mucho más que uno interno.
+                if fase_previa is not None and dias_fase:
+                    terminos.append(PENALIZACION_CAMBIO_ENLACE * cambios[0])
 
                 # Tope de cambios de horario dentro del mes. Con 1, al trabajador
                 # le queda una parte del mes entera de noches y otra entera de
