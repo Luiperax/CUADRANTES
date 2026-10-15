@@ -57,15 +57,17 @@ class _PlantillaTrabajador:
 
 
 # ---------------------------------------------------------------------------
-# EQUIPO ACTUAL DEL CENTRO (AV. SAN LUIS 77) — julio de 2026.
+# EQUIPO ACTUAL DEL CENTRO (AV. SAN LUIS 77) — noviembre de 2026.
 # Fuente de la verdad de la plantilla. Modificar aquí (o desde la interfaz) para
 # reflejar altas y bajas del equipo.
 # ---------------------------------------------------------------------------
 EQUIPO_ACTUAL: list[_PlantillaTrabajador] = [
-    # Luis y Fernando son JEFES DE EQUIPO: pueden realizar cualquier puesto SIEMPRE
-    # que sea de mañana (nunca noches) y trabajan exactamente un fin de semana al
-    # mes. Además, el puesto F1 de mañana en día laborable queda reservado a ellos
-    # (en fin de semana o festivo lo puede hacer cualquiera).
+    # JEFE DE EQUIPO: puede realizar cualquier puesto SIEMPRE que sea de mañana
+    # (nunca noches) y trabaja exactamente un fin de semana al mes. Además, el
+    # puesto F1 de mañana en día laborable queda reservado a los jefes (en fin de
+    # semana o festivo lo puede hacer cualquiera). Desde noviembre de 2026 Fernando
+    # es el único jefe: los laborables de MT-F1 que él no pueda hacer los cubre el
+    # resto del equipo, porque una sola persona no da para los veinte del mes.
     _PlantillaTrabajador(
         "FERNANDO CEMBRERO ANTOLÍN", set(_TODOS), set(), puede_hacer_noches=False,
         fines_semana_exactos=1, es_jefe_equipo=True, prioridad_jefe=1,
@@ -73,14 +75,6 @@ EQUIPO_ACTUAL: list[_PlantillaTrabajador] = [
         notas="Jefe de equipo. Cualquier puesto de mañana. Nunca noches. Un fin de "
               "semana al mes. F1 de mañana en laborable reservado a jefes. "
               "Se procura no ponerle seis días seguidos."),
-    _PlantillaTrabajador(
-        "LUIS PERALTA ROS", set(_TODOS), set(), puede_hacer_noches=False,
-        fines_semana_exactos=1, es_jefe_equipo=True, prioridad_jefe=2,
-        absorbe_exceso=True,
-        notas="Jefe de equipo. Cualquier puesto de mañana. Nunca noches. Un fin de "
-              "semana al mes. F1 de mañana en laborable reservado a jefes. Recibe el "
-              "día extra de MT-F1 cuando el reparto no es par (prioridad mayor). "
-              "Asume las horas de más cuando el reparto no cuadra exacto."),
     _PlantillaTrabajador(
         "MOHAMED AMAR MOHAMED", {Puesto.MO}, {Puesto.F1, Puesto.F2},
         finde_solo_noche=True,
@@ -94,6 +88,10 @@ EQUIPO_ACTUAL: list[_PlantillaTrabajador] = [
     _PlantillaTrabajador("Mª VICTORIA CANO MARTINEZ"),
     _PlantillaTrabajador("JAVIER PEREZ GALLARDO"),
     _PlantillaTrabajador("IVÁN DÍAZ MOYA"),
+    _PlantillaTrabajador(
+        "MAGALY ALEXANDRA SANTOS",
+        notas="Incorporación de noviembre de 2026. Antes, personal de refuerzo: "
+              "cubrió siete turnos en octubre, que sí cuentan en el reparto."),
 ]
 
 
