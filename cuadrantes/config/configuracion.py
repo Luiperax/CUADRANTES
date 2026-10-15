@@ -169,7 +169,7 @@ class PesosObjetivos:
     # Se deja como objetivo blando —no como restricción dura— para que el motor
     # pueda saltárselo antes que dejar un puesto sin cubrir. Debe pesar más que el
     # reparto de noches (2500), o el motor troceará los bloques para cuadrarlas.
-    limite_cambios_fase: int = 5000
+    limite_cambios_fase: int = 15000
     # Procurar días libres agrupados justo antes o después de las vacaciones.
     # Objetivo blando: se intenta, pero cede ante la cobertura del servicio. Debe
     # pesar MÁS que mover un turno de sitio (12 h x «equilibrio_horas» = 1200), o
@@ -182,6 +182,16 @@ class PesosObjetivos:
     # desequilibrio de meses anteriores. Los FESTIVOS se equilibran aparte, de
     # forma ANUAL (ver «equilibrio_festivos»), y NO se ven afectados por esto.
     tener_en_cuenta_historico: int = 0
+
+
+# Versión de la calibración de los parámetros (pesos, descansos, fines de semana y
+# vacaciones). La configuración se guarda ENTERA en la base de datos al crearla y se
+# recarga tal cual, así que un ajuste de estos valores en el código no llegaba nunca a
+# una base de datos ya existente: el motor seguía con los pesos viejos sin avisar.
+# Súbela cada vez que cambies un valor por defecto de esas secciones: al detectar una
+# versión anterior en la base de datos, se recargan desde el código (una sola vez) y
+# se vuelven a guardar, y desde entonces se respetan las ediciones del usuario.
+VERSION_CALIBRACION = 3
 
 
 @dataclass
@@ -218,6 +228,9 @@ class Configuracion:
     fin_de_semana: ParametrosFinDeSemana = field(default_factory=ParametrosFinDeSemana)
     vacaciones: ParametrosVacaciones = field(default_factory=ParametrosVacaciones)
     pesos: PesosObjetivos = field(default_factory=PesosObjetivos)
+
+    # Versión de calibración con la que se guardó esta configuración.
+    version_calibracion: int = VERSION_CALIBRACION
 
     # Límite de tiempo (segundos) para el solver de optimización.
     tiempo_maximo_solver_segundos: int = 30
@@ -258,12 +271,15 @@ class Configuracion:
         config.horas_computo_por_dia_ausencia = datos.get(
             "horas_computo_por_dia_ausencia", config.horas_computo_por_dia_ausencia
         )
-        if "descanso" in datos:
-            config.descanso = ParametrosDescanso(**datos["descanso"])
-        if "fin_de_semana" in datos:
-            config.fin_de_semana = ParametrosFinDeSemana(**datos["fin_de_semana"])
-        if "vacaciones" in datos:
-            config.vacaciones = ParametrosVacaciones(**datos["vacaciones"])
-        if "pesos" in datos:
-            config.pesos = PesosObjetivos(**datos["pesos"])
+        # Si se guardó con una calibración anterior, estas cuatro secciones se
+        # quedan con los valores por defecto del código (véase VERSION_CALIBRACION).
+        if datos.get("version_calibracion", 0) >= VERSION_CALIBRACION:
+            if "descanso" in datos:
+                config.descanso = ParametrosDescanso(**datos["descanso"])
+            if "fin_de_semana" in datos:
+                config.fin_de_semana = ParametrosFinDeSemana(**datos["fin_de_semana"])
+            if "vacaciones" in datos:
+                config.vacaciones = ParametrosVacaciones(**datos["vacaciones"])
+            if "pesos" in datos:
+                config.pesos = PesosObjetivos(**datos["pesos"])
         return config

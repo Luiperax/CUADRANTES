@@ -93,7 +93,7 @@ PENALIZACION_FINDE_PARTIDO = 12_000
 # mes, y aquí pesaba solo 800 como un cambio cualquiera: con ese precio el motor lo
 # pagaba sin pestañear y hasta cinco personas cambiaban justo al empalmar los meses.
 # Se pone por encima del reparto de noches (2.500) y de la adaptación a vacaciones.
-PENALIZACION_CAMBIO_ENLACE = 6_000
+PENALIZACION_CAMBIO_ENLACE = 15_000
 # Penalización por unas vacaciones que no tienen libre NINGUNO de sus dos lados (los
 # días mínimos antes ni los días mínimos después). Antes era una preferencia suave
 # de 2.500 por día y perdía frente a casi cualquier otro objetivo: bastaba una

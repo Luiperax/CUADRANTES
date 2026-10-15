@@ -473,7 +473,14 @@ class RepositorioConfiguracion:
             "SELECT valor FROM configuracion WHERE clave=?", (self.CLAVE,)
         ).fetchone()
         if fila:
-            return Configuracion.desde_json(fila["valor"])
+            import json as _json
+            from ..config.configuracion import VERSION_CALIBRACION
+            config = Configuracion.desde_json(fila["valor"])
+            # Migración: si se guardó con una calibración anterior, se persiste ya la
+            # actualizada para no repetirla en cada carga.
+            if _json.loads(fila["valor"]).get("version_calibracion", 0) < VERSION_CALIBRACION:
+                self.guardar(config)
+            return config
         # Si no existe, se crea con los valores por defecto.
         config = Configuracion()
         self.guardar(config)
